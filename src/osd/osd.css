@@ -1,0 +1,66 @@
+body {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.osd {
+  width: 252px;
+  padding: 22px 20px 20px;
+  border-radius: 24px;
+  background: rgba(32, 33, 36, 0.94);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+}
+
+.osd.show {
+  animation: osd 1.5s ease forwards;
+}
+
+@keyframes osd {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.osd .glyph {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.osd .title,
+.osd .detail {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.osd .name {
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

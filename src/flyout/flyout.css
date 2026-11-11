@@ -1,0 +1,193 @@
+.panel {
+  width: 352px;
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--tile);
+}
+
+.tab {
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab[aria-selected="true"] {
+  background: #45474d;
+  color: #fff;
+  font-weight: 600;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--tile);
+  color: #d5d9de;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fecaca;
+  background: #3a2224;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tile {
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--tile);
+  text-align: left;
+}
+
+.tile:hover {
+  background: #33353a;
+}
+
+.tile.current,
+.tile.current:hover {
+  background: var(--accent);
+}
+
+.tile.unnamed {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+}
+
+.top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.glyph {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tile-2);
+  color: #e2e5e9;
+}
+
+.tile.current .glyph {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.tile.unnamed .glyph {
+  color: var(--faint);
+}
+
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--tile-2);
+  color: #c9cdd2;
+}
+
+.tile.current .badge {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.labels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.name {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tile.unnamed .name {
+  color: var(--muted);
+}
+
+.port {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tile.current .port {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}

@@ -1,0 +1,81 @@
+import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+
+export type Icon = "desktop" | "laptop" | "plug";
+
+export interface PortView {
+  value: number;
+  portLabel: string;
+  name: string | null;
+  displayName: string;
+  isLocal: boolean;
+  isCurrent: boolean;
+  hotkey: string | null;
+  icon: Icon;
+}
+
+export interface MonitorView {
+  key: string;
+  label: string;
+  connection: "hdmi" | "displayPort" | "usbTunnel" | "other";
+  current: number | null;
+  currentName: string | null;
+  error: string | null;
+  ports: PortView[];
+  togglePair: [number, number] | null;
+  togglePairIsDefault: boolean;
+  localOverride: number | null;
+  readCapabilities: boolean;
+}
+
+export interface View {
+  monitors: MonitorView[];
+  showOsd: boolean;
+  autostart: boolean;
+  lanDiscovery: boolean;
+  toggleHotkey: string | null;
+  computerName: string;
+  failedHotkeys: string[];
+}
+
+export interface SwitchFailed {
+  key: string;
+  value: number;
+  reason: string;
+}
+
+export type OptionName = "showOsd" | "autostart" | "lanDiscovery";
+
+export const api = {
+  getView: () => invoke<View>("get_view"),
+  refresh: () => invoke<void>("refresh"),
+  switchInput: (key: string, value: number) => invoke<void>("switch_input", { key, value }),
+  toggle: () => invoke<void>("toggle"),
+  setPortName: (key: string, value: number, name: string | null) =>
+    invoke<void>("set_port_name", { key, value, name }),
+  setPortHotkey: (key: string, value: number, accelerator: string | null) =>
+    invoke<void>("set_port_hotkey", { key, value, accelerator }),
+  setToggleHotkey: (accelerator: string | null) => invoke<void>("set_toggle_hotkey", { accelerator }),
+  setTogglePair: (key: string, pair: [number, number] | null) => invoke<void>("set_toggle_pair", { key, pair }),
+  setLocalOverride: (key: string, value: number | null) => invoke<void>("set_local_override", { key, value }),
+  setReadCapabilities: (key: string, enabled: boolean) => invoke<void>("set_read_capabilities", { key, enabled }),
+  setOption: (name: OptionName, value: boolean) => invoke<void>("set_option", { name, value }),
+  openSettings: () => invoke<void>("open_settings"),
+  hideFlyout: () => invoke<void>("hide_flyout"),
+  fitFlyout: (height: number) => invoke<void>("fit_flyout", { height }),
+};
+
+export function onView(callback: (view: View) => void): Promise<UnlistenFn> {
+  return listen<View>("view-changed", (e) => callback(e.payload));
+}
+
+export function onSwitchFailed(callback: (failure: SwitchFailed) => void): Promise<UnlistenFn> {
+  return listen<SwitchFailed>("switch-failed", (e) => callback(e.payload));
+}
+
+const ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+/** Escape text before putting it into innerHTML. Names come from the user. */
+export function esc(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => ENTITIES[c]);
+}
