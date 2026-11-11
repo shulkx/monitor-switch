@@ -40,6 +40,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         service,
         hotkeys: HotkeyRegistry::default(),
         failed_hotkeys: Mutex::new(Vec::new()),
+        last_view: Mutex::new(None),
         flyout: FlyoutState::default(),
         is_laptop,
         computer_name: platform::computer_name(),

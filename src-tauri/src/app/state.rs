@@ -13,6 +13,8 @@ pub struct AppState {
     pub service: MonitorService,
     pub hotkeys: HotkeyRegistry,
     pub failed_hotkeys: Mutex<Vec<String>>,
+    /// The last view sent to the tray and the pages; identical views are not sent again.
+    pub last_view: Mutex<Option<View>>,
     pub flyout: FlyoutState,
     pub is_laptop: bool,
     pub computer_name: String,

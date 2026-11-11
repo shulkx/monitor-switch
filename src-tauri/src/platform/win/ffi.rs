@@ -133,6 +133,11 @@ pub const DISPLAY_DEVICE_ACTIVE: u32 = 0x1;
 pub const QDC_ONLY_ACTIVE_PATHS: u32 = 0x2;
 pub const DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME: u32 = 2;
 pub const ERROR_INSUFFICIENT_BUFFER: i32 = 122;
+/// HKEY_LOCAL_MACHINE is the sign-extended 32-bit value 0x80000002.
+pub const HKEY_LOCAL_MACHINE: isize = 0x8000_0002u32 as i32 as isize;
+pub const RRF_RT_REG_BINARY: u32 = 0x8;
+pub const MOVEFILE_REPLACE_EXISTING: u32 = 0x1;
+pub const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
 
 pub type MonitorEnumProc = unsafe extern "system" fn(isize, isize, *mut RECT, isize) -> i32;
 
@@ -167,6 +172,20 @@ extern "system" {
 #[link(name = "kernel32")]
 extern "system" {
     pub fn GetSystemPowerStatus(status: *mut SYSTEM_POWER_STATUS) -> i32;
+    pub fn MoveFileExW(existing: *const u16, new: *const u16, flags: u32) -> i32;
+}
+
+#[link(name = "advapi32")]
+extern "system" {
+    pub fn RegGetValueW(
+        key: isize,
+        sub_key: *const u16,
+        value: *const u16,
+        flags: u32,
+        kind: *mut u32,
+        data: *mut u8,
+        size: *mut u32,
+    ) -> i32;
 }
 
 pub fn wide_to_string(wide: &[u16]) -> String {

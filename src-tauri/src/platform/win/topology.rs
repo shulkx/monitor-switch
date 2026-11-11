@@ -12,17 +12,23 @@ pub struct Target {
     pub device_path: String,
     pub friendly_name: String,
     pub connection: ConnectionKind,
+    /// A built-in panel (laptop screen). These never switch inputs over DDC/CI.
+    pub internal: bool,
 }
 
 /// DISPLAYCONFIG_VIDEO_OUTPUT_TECHNOLOGY → ConnectionKind.
-/// 19 is DISPLAYPORT_USB_TUNNEL on recent Windows 11 builds; older SDKs do not define it.
 pub fn connection_from_technology(technology: u32) -> ConnectionKind {
     match technology {
         5 => ConnectionKind::Hdmi,
-        10 | 11 => ConnectionKind::DisplayPort,
-        19 => ConnectionKind::UsbTunnel,
+        10 => ConnectionKind::DisplayPort,
+        18 => ConnectionKind::UsbTunnel, // DISPLAYPORT_USB_TUNNEL
         _ => ConnectionKind::Other,
     }
+}
+
+/// INTERNAL, LVDS, DISPLAYPORT_EMBEDDED, UDI_EMBEDDED.
+pub fn is_internal(technology: u32) -> bool {
+    matches!(technology, 0x8000_0000 | 6 | 11 | 13)
 }
 
 pub fn active_targets() -> Vec<Target> {
@@ -73,6 +79,7 @@ unsafe fn target_name(adapter_id: LUID, id: u32) -> Option<Target> {
         device_path: wide_to_string(&name.monitor_device_path).to_ascii_lowercase(),
         friendly_name: wide_to_string(&name.monitor_friendly_device_name),
         connection: connection_from_technology(name.output_technology),
+        internal: is_internal(name.output_technology),
     })
 }
 
@@ -84,8 +91,16 @@ mod tests {
     fn maps_output_technologies() {
         assert_eq!(connection_from_technology(5), ConnectionKind::Hdmi);
         assert_eq!(connection_from_technology(10), ConnectionKind::DisplayPort);
-        assert_eq!(connection_from_technology(11), ConnectionKind::DisplayPort);
-        assert_eq!(connection_from_technology(19), ConnectionKind::UsbTunnel);
+        assert_eq!(connection_from_technology(18), ConnectionKind::UsbTunnel);
         assert_eq!(connection_from_technology(0x8000_0000), ConnectionKind::Other);
+    }
+
+    #[test]
+    fn recognises_built_in_panels() {
+        assert!(is_internal(0x8000_0000));
+        assert!(is_internal(11)); // eDP
+        assert!(is_internal(6)); // LVDS
+        assert!(!is_internal(10));
+        assert!(!is_internal(5));
     }
 }

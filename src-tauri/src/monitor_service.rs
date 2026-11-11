@@ -25,7 +25,10 @@ pub struct MonitorState {
     pub inputs: Vec<u16>,
     pub current: Option<u16>,
     pub local_input: Option<u16>,
+    /// The monitor stopped answering DDC/CI.
     pub error: Option<String>,
+    /// The last switch did not go through. Kept until the input changes (spec 5.2 step 3).
+    pub switch_error: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -126,6 +129,7 @@ impl MonitorService {
             on_event: Box::new(on_event),
             snapshot: snapshot.clone(),
             monitors: Vec::new(),
+            last_seen: HashMap::new(),
             poll_failures: HashMap::new(),
             polls_since_list: 0,
         };
@@ -164,6 +168,9 @@ struct Worker {
     on_event: Box<dyn Fn(ServiceEvent) + Send>,
     snapshot: Arc<Mutex<Vec<MonitorState>>>,
     monitors: Vec<MonitorState>,
+    /// Last input read from each monitor, kept even while Windows drops a monitor that is
+    /// showing another computer, so its return is still reported as a change.
+    last_seen: HashMap<MonitorKey, u16>,
     poll_failures: HashMap<MonitorKey, u32>,
     polls_since_list: u32,
 }
@@ -185,17 +192,33 @@ impl Worker {
         self.polls_since_list = 0;
         let infos = self.backend.list();
         let mut next = Vec::with_capacity(infos.len());
+        let mut events = Vec::new();
         for info in infos {
             let inputs = self.inputs_for(&info);
-            let previous = self.monitors.iter().find(|m| m.key == info.key).and_then(|m| m.current);
-            let (current, error) = match self.read_with_retry(&info.key) {
-                Ok(v) => (Some(v), None),
-                Err(_) => (previous, Some(NO_RESPONSE.to_string())),
-            };
             let local_input = self
                 .prefs
                 .local_override(&info.key)
                 .or_else(|| guess_local_input(info.connection, self.is_laptop, &inputs));
+            let previous = self.monitors.iter().find(|m| m.key == info.key);
+            let mut switch_error = previous.and_then(|m| m.switch_error.clone());
+            let last = previous.and_then(|m| m.current).or_else(|| self.last_seen.get(&info.key).copied());
+            let (current, error) = match self.read_with_retry(&info.key) {
+                Ok(v) => {
+                    if let Some(from) = last.filter(|&from| from != v) {
+                        switch_error = None;
+                        events.push(ServiceEvent::InputChanged {
+                            key: info.key.clone(),
+                            from: Some(from),
+                            to: v,
+                            cause: ChangeCause::External,
+                            local_input,
+                        });
+                    }
+                    self.last_seen.insert(info.key.clone(), v);
+                    (Some(v), None)
+                }
+                Err(_) => (last, Some(NO_RESPONSE.to_string())),
+            };
             next.push(MonitorState {
                 key: info.key,
                 label: info.label,
@@ -204,10 +227,17 @@ impl Worker {
                 current,
                 local_input,
                 error,
+                switch_error,
             });
         }
-        self.monitors = next;
-        self.publish();
+        // Rebuilding the tray menu while it is open drops the click, so only publish real changes.
+        if next != self.monitors {
+            self.monitors = next;
+            self.publish();
+        }
+        for event in events {
+            (self.on_event)(event);
+        }
     }
 
     fn inputs_for(&mut self, info: &MonitorInfo) -> Vec<u16> {
@@ -256,6 +286,7 @@ impl Worker {
             match self.read_once(&key) {
                 Ok(v) => {
                     self.poll_failures.remove(&key);
+                    self.last_seen.insert(key.clone(), v);
                     let m = &mut self.monitors[idx];
                     if m.error.take().is_some() {
                         changed = true;
@@ -271,6 +302,7 @@ impl Worker {
                             });
                         }
                         m.current = Some(v);
+                        m.switch_error = None;
                         changed = true;
                     }
                 }
@@ -304,7 +336,7 @@ impl Worker {
             }
         }
         if !sent {
-            (self.on_event)(ServiceEvent::SwitchFailed { key: key.clone(), value, reason: NO_RESPONSE.to_string() });
+            self.fail_switch(key, value, NO_RESPONSE);
             return;
         }
         thread::sleep(self.timing.verify_delay);
@@ -312,23 +344,40 @@ impl Worker {
         let Some(idx) = self.monitors.iter().position(|m| &m.key == key) else {
             return;
         };
-        let from = self.monitors[idx].current;
-        let local_input = self.monitors[idx].local_input;
-        let event = match read {
+        match read {
             Ok(v) if v != value => {
                 self.monitors[idx].current = Some(v);
-                ServiceEvent::SwitchFailed { key: key.clone(), value, reason: NOT_APPLIED.to_string() }
+                self.last_seen.insert(key.clone(), v);
+                self.fail_switch(key, value, NOT_APPLIED);
             }
             // The expected value, or no answer: many monitors go quiet for a moment while they
             // lock on to the new signal. The command was accepted, so treat it as done.
             _ => {
-                self.monitors[idx].current = Some(value);
-                self.monitors[idx].error = None;
-                ServiceEvent::InputChanged { key: key.clone(), from, to: value, cause: ChangeCause::User, local_input }
+                let m = &mut self.monitors[idx];
+                let from = m.current;
+                m.current = Some(value);
+                m.error = None;
+                m.switch_error = None;
+                let local_input = m.local_input;
+                self.last_seen.insert(key.clone(), value);
+                self.publish();
+                (self.on_event)(ServiceEvent::InputChanged {
+                    key: key.clone(),
+                    from,
+                    to: value,
+                    cause: ChangeCause::User,
+                    local_input,
+                });
             }
-        };
+        }
+    }
+
+    fn fail_switch(&mut self, key: &MonitorKey, value: u16, reason: &str) {
+        if let Some(m) = self.monitors.iter_mut().find(|m| &m.key == key) {
+            m.switch_error = Some(reason.to_string());
+        }
         self.publish();
-        (self.on_event)(event);
+        (self.on_event)(ServiceEvent::SwitchFailed { key: key.clone(), value, reason: reason.to_string() });
     }
 
     /// Store the state for `snapshot()` first, then notify, so listeners always read fresh state.
@@ -393,9 +442,19 @@ mod tests {
     }
 
     fn start(fake: &FakeBackend, prefs: TestPrefs) -> (MonitorService, Receiver<ServiceEvent>, Arc<TestPrefs>) {
+        start_with(fake, prefs, timing())
+    }
+
+    /// No polling during the test, so only explicit refreshes read the monitor.
+    fn start_quiet(fake: &FakeBackend) -> (MonitorService, Receiver<ServiceEvent>) {
+        let (svc, rx, _) = start_with(fake, TestPrefs::default(), Timing { poll: Duration::from_secs(60), ..timing() });
+        (svc, rx)
+    }
+
+    fn start_with(fake: &FakeBackend, prefs: TestPrefs, timing: Timing) -> (MonitorService, Receiver<ServiceEvent>, Arc<TestPrefs>) {
         let prefs = Arc::new(prefs);
         let (tx, rx) = mpsc::channel();
-        let service = MonitorService::start(Box::new(fake.clone()), prefs.clone(), false, timing(), move |e| {
+        let service = MonitorService::start(Box::new(fake.clone()), prefs.clone(), false, timing, move |e| {
             let _ = tx.send(e);
         });
         (service, rx, prefs)
@@ -532,6 +591,61 @@ mod tests {
                 local_input: Some(0x0F),
             }
         );
+    }
+
+    #[test]
+    fn refresh_notices_changes_made_elsewhere() {
+        let fake = fake_with_dell(0x0F);
+        let (svc, rx) = start_quiet(&fake);
+        first_snapshot(&rx);
+        fake.0.lock().unwrap().inputs.insert(dell().key, 0x1B);
+        svc.refresh();
+        let event = wait_for(&rx, |e| matches!(e, ServiceEvent::InputChanged { .. }));
+        assert!(matches!(event, ServiceEvent::InputChanged { to: 0x1B, cause: ChangeCause::External, .. }));
+    }
+
+    #[test]
+    fn refresh_without_changes_publishes_nothing() {
+        let fake = fake_with_dell(0x0F);
+        let (svc, rx) = start_quiet(&fake);
+        first_snapshot(&rx);
+        svc.refresh();
+        assert!(rx.recv_timeout(Duration::from_millis(200)).is_err());
+    }
+
+    #[test]
+    fn a_monitor_that_comes_back_on_another_input_is_reported() {
+        let fake = fake_with_dell(0x0F);
+        let (svc, rx) = start_quiet(&fake);
+        first_snapshot(&rx);
+        // Windows drops the monitor while it shows the other computer…
+        fake.0.lock().unwrap().monitors.clear();
+        svc.refresh();
+        wait_for(&rx, |e| matches!(e, ServiceEvent::Snapshot(states) if states.is_empty()));
+        // …and lists it again when it comes back on another input.
+        {
+            let mut s = fake.0.lock().unwrap();
+            s.monitors.push(dell());
+            s.inputs.insert(dell().key, 0x1B);
+        }
+        svc.refresh();
+        let event = wait_for(&rx, |e| matches!(e, ServiceEvent::InputChanged { .. }));
+        assert!(matches!(event, ServiceEvent::InputChanged { from: Some(0x0F), to: 0x1B, .. }));
+    }
+
+    #[test]
+    fn a_failed_switch_stays_visible_until_the_next_successful_one() {
+        let fake = fake_with_dell(0x0F);
+        let (svc, rx, _) = start(&fake, TestPrefs::default());
+        first_snapshot(&rx);
+        fake.0.lock().unwrap().ignore_sets = true;
+        svc.switch(dell().key, 0x1B);
+        wait_for(&rx, |e| matches!(e, ServiceEvent::SwitchFailed { .. }));
+        assert_eq!(svc.snapshot()[0].switch_error.as_deref(), Some(NOT_APPLIED));
+        fake.0.lock().unwrap().ignore_sets = false;
+        svc.switch(dell().key, 0x1B);
+        wait_for(&rx, |e| matches!(e, ServiceEvent::InputChanged { cause: ChangeCause::User, .. }));
+        assert_eq!(svc.snapshot()[0].switch_error, None);
     }
 
     #[test]

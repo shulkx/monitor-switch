@@ -17,10 +17,14 @@ pub fn create_flyout(app: &AppHandle) -> tauri::Result<()> {
         .visible(false)
         .build()?;
     let handle = app.clone();
-    win.on_window_event(move |event| {
-        if let WindowEvent::Focused(false) = event {
+    win.on_window_event(move |event| match event {
+        WindowEvent::Focused(false) => flyout::hide(&handle),
+        // Alt+F4 would destroy the panel for good; hide it instead.
+        WindowEvent::CloseRequested { api, .. } => {
+            api.prevent_close();
             flyout::hide(&handle);
         }
+        _ => {}
     });
     Ok(())
 }
@@ -40,6 +44,15 @@ pub fn create_osd(app: &AppHandle) -> tauri::Result<()> {
         .visible(false)
         .build()?;
     win.set_ignore_cursor_events(true)?;
+    let handle = app.clone();
+    win.on_window_event(move |event| {
+        if let WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            if let Some(win) = handle.get_webview_window(osd::OSD_LABEL) {
+                let _ = win.hide();
+            }
+        }
+    });
     Ok(())
 }
 

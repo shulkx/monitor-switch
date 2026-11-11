@@ -21,7 +21,8 @@ pub fn tooltip_text(view: &View) -> String {
                 .and_then(|c| m.ports.iter().find(|p| p.value == c))
                 .map(|p| format!("{}（{}）", p.display_name, p.port_label))
                 .unwrap_or_else(|| "读不到当前输入".into());
-            format!("{} · {}", m.label, current)
+            let warning = if m.switch_error.is_some() { " · 上次切换没有成功" } else { "" };
+            format!("{} · {}{}", m.label, current, warning)
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -97,7 +98,11 @@ pub fn update(app: &AppHandle, view: &View) {
 
 fn on_menu(app: &AppHandle, id: &str) {
     match id {
-        "settings" => windows::open_settings(app),
+        "settings" => {
+            // Creating a window inside an event handler can deadlock on Windows; do it off-thread.
+            let app = app.clone();
+            std::thread::spawn(move || windows::open_settings(&app));
+        }
         "quit" => app.exit(0),
         other => {
             let Some(rest) = other.strip_prefix("switch|") else { return };
@@ -130,9 +135,14 @@ mod tests {
             current: Some(0x1B),
             local_input: Some(0x0F),
             error: None,
+            switch_error: None,
         };
-        let view = build_view(&[state], &cfg, false, "PC");
+        let view = build_view(&[state.clone()], &cfg, false, "PC");
         assert_eq!(tooltip_text(&view), "Dell U2723QE · 公司笔记本（USB-C）");
+
+        let failed = MonitorState { switch_error: Some("切换可能没有生效".into()), ..state };
+        let view = build_view(&[failed], &cfg, false, "PC");
+        assert_eq!(tooltip_text(&view), "Dell U2723QE · 公司笔记本（USB-C） · 上次切换没有成功");
     }
 
     #[test]

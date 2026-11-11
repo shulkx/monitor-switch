@@ -49,9 +49,13 @@ function portCard(monitor: MonitorView, port: PortView): string {
 }
 
 function portOptions(monitor: MonitorView, selected: number | null): string {
-  return monitor.ports
-    .map((p) => `<option value="${p.value}"${p.value === selected ? " selected" : ""}>${esc(p.displayName)}（${esc(p.portLabel)}）</option>`)
-    .join("");
+  const placeholder = `<option value="" disabled${selected === null ? " selected" : ""}>选择接口</option>`;
+  return (
+    placeholder +
+    monitor.ports
+      .map((p) => `<option value="${p.value}"${p.value === selected ? " selected" : ""}>${esc(p.displayName)}（${esc(p.portLabel)}）</option>`)
+      .join("")
+  );
 }
 
 function monitorSection(v: View, monitor: MonitorView): string {
@@ -149,6 +153,9 @@ function bind(): void {
 
   root.querySelectorAll<HTMLButtonElement>("button[data-hk]").forEach((button) =>
     button.addEventListener("click", () => {
+      // Turn the app's hotkeys off so pressing one records it (and shows the conflict)
+      // instead of switching the monitor.
+      void api.pauseHotkeys();
       recording = { target: JSON.parse(button.dataset.hk!) as Target, errorId: button.dataset.err! };
       render();
     }),
@@ -157,7 +164,7 @@ function bind(): void {
   const pairA = root.querySelector<HTMLSelectElement>("#pair-a");
   const pairB = root.querySelector<HTMLSelectElement>("#pair-b");
   const onPair = () => {
-    if (!monitor || !pairA || !pairB) return;
+    if (!monitor || !pairA || !pairB || pairA.value === "" || pairB.value === "") return;
     void run("pair", () => api.setTogglePair(monitor.key, [Number(pairA.value), Number(pairB.value)]));
   };
   pairA?.addEventListener("change", onPair);
@@ -181,6 +188,12 @@ function bind(): void {
   );
 }
 
+function stopRecording(): void {
+  recording = null;
+  void api.resumeHotkeys();
+  render();
+}
+
 // Hotkey recording: the next key combination pressed anywhere in the window.
 document.addEventListener(
   "keydown",
@@ -190,8 +203,7 @@ document.addEventListener(
     e.stopPropagation();
     const { target, errorId } = recording;
     if (e.key === "Escape") {
-      recording = null;
-      render();
+      stopRecording();
       return;
     }
     let accelerator: string | null;
@@ -202,12 +214,24 @@ document.addEventListener(
       if (accelerator === null) return; // still holding only modifiers
     }
     recording = null;
-    void run(errorId, () =>
-      target.kind === "toggle" ? api.setToggleHotkey(accelerator) : api.setPortHotkey(target.key, target.value, accelerator),
-    );
+    void run(errorId, async () => {
+      try {
+        await (target.kind === "toggle"
+          ? api.setToggleHotkey(accelerator)
+          : api.setPortHotkey(target.key, target.value, accelerator));
+      } finally {
+        // A rejected hotkey returns before the backend re-registers anything.
+        await api.resumeHotkeys();
+      }
+    });
   },
   true,
 );
+
+// Leaving the window while recording cancels it, so hotkeys never stay switched off.
+window.addEventListener("blur", () => {
+  if (recording) stopRecording();
+});
 
 void onView((v) => {
   view = v;

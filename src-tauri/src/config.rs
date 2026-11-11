@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -137,29 +137,44 @@ impl ConfigStore {
         &self.path
     }
 
-    /// Missing file → defaults. Corrupt file → moved to `config.bad.json`, defaults returned.
+    fn bad_path(&self) -> PathBuf {
+        self.path.with_file_name("config.bad.json")
+    }
+
+    /// Missing file → defaults. A file we can't read or parse is kept as `config.bad.json`
+    /// (so the next save can't destroy the user's settings) and defaults are returned.
     pub fn load(&self) -> Config {
-        let Ok(text) = fs::read_to_string(&self.path) else {
-            return Config::default();
-        };
-        match serde_json::from_str::<Config>(&text) {
-            Ok(cfg) => cfg,
+        let bytes = match fs::read(&self.path) {
+            Ok(bytes) => bytes,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Config::default(),
             Err(_) => {
-                let _ = fs::rename(&self.path, self.path.with_file_name("config.bad.json"));
+                let _ = fs::copy(&self.path, self.bad_path());
+                return Config::default();
+            }
+        };
+        match std::str::from_utf8(&bytes).ok().and_then(|text| serde_json::from_str::<Config>(text).ok()) {
+            Some(cfg) => cfg,
+            None => {
+                let _ = fs::rename(&self.path, self.bad_path());
                 Config::default()
             }
         }
     }
 
-    /// Write a temporary file, then rename it over the real one, so a crash never leaves half a file.
+    /// Write a temporary file, flush it to disk, then replace the real one with a write-through
+    /// rename. A crash never leaves half a file, and a saved change survives even a bluescreen
+    /// right afterwards (the capabilities crash marker depends on this, spec 6.4).
     pub fn save(&self, cfg: &Config) -> io::Result<()> {
         if let Some(dir) = self.path.parent() {
             fs::create_dir_all(dir)?;
         }
         let tmp = self.path.with_extension("json.tmp");
         let text = serde_json::to_string_pretty(cfg).map_err(io::Error::other)?;
-        fs::write(&tmp, text)?;
-        fs::rename(&tmp, &self.path)
+        let mut file = fs::File::create(&tmp)?;
+        file.write_all(text.as_bytes())?;
+        file.sync_all()?;
+        drop(file);
+        crate::platform::replace_file_durably(&tmp, &self.path)
     }
 }
 
@@ -217,6 +232,27 @@ mod tests {
         assert_eq!(store.load(), Config::default());
         assert!(store.path().with_file_name("config.bad.json").exists());
         assert!(!store.path().exists());
+    }
+
+    #[test]
+    fn file_in_another_encoding_is_kept_aside() {
+        let (_dir, store) = store();
+        fs::create_dir_all(store.path().parent().unwrap()).unwrap();
+        // "你好" in GBK, as an editor might save it: not valid UTF-8.
+        fs::write(store.path(), [0xC4, 0xE3, 0xBA, 0xC3]).unwrap();
+        assert_eq!(store.load(), Config::default());
+        assert!(store.path().with_file_name("config.bad.json").exists());
+    }
+
+    #[test]
+    fn save_replaces_an_existing_file() {
+        let (_dir, store) = store();
+        store.save(&Config::default()).unwrap();
+        let mut cfg = Config::default();
+        cfg.autostart = false;
+        store.save(&cfg).unwrap();
+        assert_eq!(store.load(), cfg);
+        assert!(!store.path().with_extension("json.tmp").exists());
     }
 
     #[test]

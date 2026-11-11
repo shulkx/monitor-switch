@@ -37,6 +37,8 @@ pub fn run() {
             commands::set_port_name,
             commands::set_port_hotkey,
             commands::set_toggle_hotkey,
+            commands::pause_hotkeys,
+            commands::resume_hotkeys,
             commands::set_toggle_pair,
             commands::set_local_override,
             commands::set_read_capabilities,

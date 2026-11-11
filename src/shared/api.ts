@@ -21,6 +21,7 @@ export interface MonitorView {
   current: number | null;
   currentName: string | null;
   error: string | null;
+  switchError: string | null;
   ports: PortView[];
   togglePair: [number, number] | null;
   togglePairIsDefault: boolean;
@@ -38,12 +39,6 @@ export interface View {
   failedHotkeys: string[];
 }
 
-export interface SwitchFailed {
-  key: string;
-  value: number;
-  reason: string;
-}
-
 export type OptionName = "showOsd" | "autostart" | "lanDiscovery";
 
 export const api = {
@@ -56,6 +51,8 @@ export const api = {
   setPortHotkey: (key: string, value: number, accelerator: string | null) =>
     invoke<void>("set_port_hotkey", { key, value, accelerator }),
   setToggleHotkey: (accelerator: string | null) => invoke<void>("set_toggle_hotkey", { accelerator }),
+  pauseHotkeys: () => invoke<void>("pause_hotkeys"),
+  resumeHotkeys: () => invoke<void>("resume_hotkeys"),
   setTogglePair: (key: string, pair: [number, number] | null) => invoke<void>("set_toggle_pair", { key, pair }),
   setLocalOverride: (key: string, value: number | null) => invoke<void>("set_local_override", { key, value }),
   setReadCapabilities: (key: string, enabled: boolean) => invoke<void>("set_read_capabilities", { key, enabled }),
@@ -67,10 +64,6 @@ export const api = {
 
 export function onView(callback: (view: View) => void): Promise<UnlistenFn> {
   return listen<View>("view-changed", (e) => callback(e.payload));
-}
-
-export function onSwitchFailed(callback: (failure: SwitchFailed) => void): Promise<UnlistenFn> {
-  return listen<SwitchFailed>("switch-failed", (e) => callback(e.payload));
 }
 
 const ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };

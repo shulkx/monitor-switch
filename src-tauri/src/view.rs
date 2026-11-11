@@ -36,6 +36,7 @@ pub struct MonitorView {
     pub current: Option<u16>,
     pub current_name: Option<String>,
     pub error: Option<String>,
+    pub switch_error: Option<String>,
     pub ports: Vec<PortView>,
     pub toggle_pair: Option<[u16; 2]>,
     pub toggle_pair_is_default: bool,
@@ -129,6 +130,7 @@ fn monitor_view(s: &MonitorState, cfg: &Config, is_laptop: bool, computer_name: 
         current: s.current,
         current_name,
         error: s.error.clone(),
+        switch_error: s.switch_error.clone(),
         ports,
         toggle_pair,
         toggle_pair_is_default: configured_pair.is_none(),
@@ -154,6 +156,7 @@ mod tests {
             current,
             local_input: local,
             error: None,
+            switch_error: None,
         }
     }
 
@@ -199,9 +202,9 @@ mod tests {
     #[test]
     fn default_toggle_pair_is_local_plus_first_named() {
         let mut cfg = Config::default();
-        cfg.monitor_mut(&key()).port_mut(0x1B).name = Some("笔记本".into());
+        cfg.monitor_mut(&key()).port_mut(0x11).name = Some("游戏机".into());
         let view = build_view(&[state(Some(0x0F), Some(0x0F))], &cfg, false, "PC");
-        assert_eq!(view.monitors[0].toggle_pair, Some([0x0F, 0x1B]));
+        assert_eq!(view.monitors[0].toggle_pair, Some([0x0F, 0x11]));
         assert!(view.monitors[0].toggle_pair_is_default);
     }
 

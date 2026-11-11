@@ -1,12 +1,10 @@
-import { api, esc, onSwitchFailed, onView, type MonitorView, type PortView, type View } from "../shared/api";
+import { api, esc, onView, type MonitorView, type PortView, type View } from "../shared/api";
 import { prettyAccelerator } from "../shared/hotkey";
 import { icon } from "../shared/icons";
 
 const panel = document.getElementById("panel") as HTMLElement;
 let view: View | null = null;
 let selectedKey: string | null = null;
-let failure: string | null = null;
-let failureTimer: number | undefined;
 
 function selectedMonitor(v: View): MonitorView | undefined {
   return v.monitors.find((m) => m.key === selectedKey) ?? v.monitors[0];
@@ -22,6 +20,16 @@ function tile(monitor: MonitorView, port: PortView): string {
   return `<button class="${classes}" data-key="${esc(monitor.key)}" data-value="${port.value}" aria-pressed="${port.isCurrent}">
     <span class="top"><span class="glyph">${icon(port.icon)}</span>${badge}</span>
     <span class="labels"><span class="name">${esc(port.displayName)}</span><span class="port">${esc(port.portLabel)}</span></span>
+  </button>`;
+}
+
+/** Without a toggle pair the tile can't switch anything, so it opens settings instead. */
+function toggleTile(monitor: MonitorView, toggleHotkey: string | null): string {
+  const ready = monitor.togglePair !== null;
+  const hint = ready ? prettyAccelerator(toggleHotkey) || "未设置快捷键" : "先在设置里选好两个接口";
+  return `<button class="tile" ${ready ? "data-toggle" : "data-settings"}>
+    <span class="top"><span class="glyph">${icon("toggle", 20)}</span></span>
+    <span class="labels"><span class="name">来回切换</span><span class="port">${esc(hint)}</span></span>
   </button>`;
 }
 
@@ -46,15 +54,11 @@ function render(): void {
     : "";
   const title = many ? "" : `<span class="title">${esc(monitor.label)}</span>`;
   const sub = monitor.currentName ? `正在显示 ${esc(monitor.currentName)}` : "读不到当前输入";
-  const error = failure ?? monitor.error;
-  const toggleTile = `<button class="tile" data-toggle>
-    <span class="top"><span class="glyph">${icon("toggle", 20)}</span></span>
-    <span class="labels"><span class="name">来回切换</span><span class="port">${esc(prettyAccelerator(view.toggleHotkey) || "未设置快捷键")}</span></span>
-  </button>`;
+  const error = monitor.error ?? monitor.switchError;
   panel.innerHTML = `${tabs}
     <div class="head"><div class="titles">${title}<span class="sub">${sub}</span></div>${settingsButton()}</div>
     ${error ? `<div class="error" role="alert">${esc(error)}</div>` : ""}
-    <div class="grid">${monitor.ports.map((p) => tile(monitor, p)).join("")}${toggleTile}</div>`;
+    <div class="grid">${monitor.ports.map((p) => tile(monitor, p)).join("")}${toggleTile(monitor, view.toggleHotkey)}</div>`;
   afterRender();
 }
 
@@ -71,8 +75,12 @@ function afterRender(): void {
     }),
   );
   panel.querySelector<HTMLButtonElement>("[data-toggle]")?.addEventListener("click", () => void api.toggle());
-  panel.querySelector<HTMLButtonElement>("[data-settings]")?.addEventListener("click", () => void api.openSettings());
-  requestAnimationFrame(() => void api.fitFlyout(Math.ceil(panel.getBoundingClientRect().height)));
+  panel.querySelectorAll<HTMLButtonElement>("[data-settings]").forEach((b) =>
+    b.addEventListener("click", () => void api.openSettings()),
+  );
+  // Measure right away: requestAnimationFrame is paused while the panel is hidden, which
+  // would make it open at the old height and then jump.
+  void api.fitFlyout(Math.ceil(panel.getBoundingClientRect().height));
 }
 
 document.addEventListener("keydown", (e) => {
@@ -82,16 +90,6 @@ document.addEventListener("keydown", (e) => {
 void onView((v) => {
   view = v;
   render();
-});
-
-void onSwitchFailed((f) => {
-  failure = f.reason;
-  render();
-  window.clearTimeout(failureTimer);
-  failureTimer = window.setTimeout(() => {
-    failure = null;
-    render();
-  }, 4000);
 });
 
 void api.getView().then((v) => {

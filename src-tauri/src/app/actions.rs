@@ -6,6 +6,7 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 use crate::app::{osd, state::AppState, tray};
 use crate::hotkeys::{self, HotkeyAction, HotkeyTarget, IN_USE_ELSEWHERE, IN_USE_HERE};
@@ -86,12 +87,27 @@ pub fn handle_service_event(app: &AppHandle, event: ServiceEvent) {
     }
 }
 
-/// Push the current view to every window and refresh the tray.
+/// Push the current view to every window and refresh the tray, unless nothing changed:
+/// rebuilding the tray menu while it is open drops the click, and re-rendering the
+/// settings page closes any open drop-down.
 pub fn publish_view(app: &AppHandle) {
     let Some(state) = app.try_state::<AppState>() else { return };
     let view = state.view();
+    {
+        let mut last = state.last_view.lock().unwrap();
+        if last.as_ref() == Some(&view) {
+            return;
+        }
+        *last = Some(view.clone());
+    }
     tray::update(app, &view);
     let _ = app.emit("view-changed", view);
+}
+
+/// While the settings page records a hotkey, unregister every hotkey so the keystroke reaches
+/// the page instead of switching the monitor. `apply_hotkeys` turns them back on.
+pub fn pause_hotkeys(app: &AppHandle) {
+    let _ = app.global_shortcut().unregister_all();
 }
 
 /// Register every configured hotkey again and remember which ones the OS refused.

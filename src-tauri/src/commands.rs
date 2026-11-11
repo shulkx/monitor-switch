@@ -46,6 +46,18 @@ pub fn set_toggle_hotkey(app: AppHandle, accelerator: Option<String>) -> Result<
     actions::set_hotkey(&app, HotkeyTarget::Toggle, accelerator)
 }
 
+/// The settings page is about to record a hotkey.
+#[tauri::command]
+pub fn pause_hotkeys(app: AppHandle) {
+    actions::pause_hotkeys(&app);
+}
+
+/// Recording finished or was cancelled.
+#[tauri::command]
+pub fn resume_hotkeys(app: AppHandle) {
+    actions::apply_hotkeys(&app);
+}
+
 #[tauri::command]
 pub fn set_toggle_pair(app: AppHandle, key: String, pair: Option<[u16; 2]>) -> Result<(), String> {
     if let Some([a, b]) = pair {
