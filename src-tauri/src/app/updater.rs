@@ -71,8 +71,8 @@ pub async fn check(app: &AppHandle, manual: bool) {
         set_status(app, UpdateStatus::Checking);
     }
     let result = match updater(app) {
-        Ok(updater) => updater.check().await.map_err(|e| e.to_string()),
-        Err(e) => Err(e.to_string()),
+        Ok(updater) => updater.check().await.map_err(|e| updates::explain(&e.to_string())),
+        Err(e) => Err(updates::explain(&e.to_string())),
     };
     let found = result.map(|update| {
         let info = update
@@ -114,7 +114,7 @@ pub async fn install(app: &AppHandle) -> Result<(), String> {
         )
         .await;
     result.map_err(|e| {
-        let message = format!("更新失败：{e}");
+        let message = format!("更新失败：{}", updates::explain(&e.to_string()));
         set_status(app, UpdateStatus::Failed { message: message.clone(), version: Some(version) });
         message
     })

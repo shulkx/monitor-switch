@@ -32,6 +32,21 @@ pub fn after_check(previous: &UpdateStatus, result: Result<Found, String>, manua
     }
 }
 
+/// The updater's error in words the user can act on; unknown errors pass through.
+pub fn explain(error: &str) -> String {
+    let error = error.trim().trim_matches('`');
+    let lower = error.to_lowercase();
+    if lower.contains("signature") {
+        "安装包的签名对不上，已拒绝安装".into()
+    } else if let Some(status) = error.split("status: ").nth(1) {
+        format!("下载没有成功（服务器返回 {}）", status.trim_matches('`'))
+    } else if ["error sending request", "dns", "connect", "timed out", "timeout"].iter().any(|k| lower.contains(k)) {
+        "连不上 GitHub，检查网络后再试".into()
+    } else {
+        error.to_string()
+    }
+}
+
 /// Whole percent downloaded, when the size is known.
 pub fn percent(done: u64, total: Option<u64>) -> Option<u8> {
     match total {
@@ -94,6 +109,17 @@ mod tests {
         assert!(worth_showing(Some(97), Some(100)));
         assert!(!worth_showing(Some(100), Some(100)));
         assert!(!worth_showing(None, None));
+    }
+
+    #[test]
+    fn explains_common_errors() {
+        assert_eq!(explain("`Download request failed with status: 404 Not Found`"), "下载没有成功（服务器返回 404 Not Found）");
+        assert_eq!(
+            explain("error sending request for url (https://github.com/...)"),
+            "连不上 GitHub，检查网络后再试"
+        );
+        assert_eq!(explain("the signature verification failed"), "安装包的签名对不上，已拒绝安装");
+        assert_eq!(explain("something else"), "something else");
     }
 
     #[test]
