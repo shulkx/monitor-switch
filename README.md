@@ -13,7 +13,7 @@
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![Rust](https://img.shields.io/badge/Rust-backend-B7410E?logo=rust&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-UI-3178C6?logo=typescript&logoColor=white)
-![安装包 2 MB](https://img.shields.io/badge/安装包-≈2%20MB-46a758)
+![安装包 3 MB](https://img.shields.io/badge/安装包-≈3%20MB-46a758)
 
 <img src="docs/images/hero.png" alt="按下 Ctrl+Alt+M，屏幕中央提示正在切换到工作笔记本；右下角是托盘面板" />
 
@@ -23,7 +23,7 @@
 
 台式机和笔记本共用一台显示器时，切换输入源要么按显示器背后的物理按键、在菜单里翻好几层，要么装显示器厂商的管理软件——体积大、常驻一堆服务，只为了换个输入口。
 
-MonitorSwitch 只做这一件事：通过 **DDC/CI** 直接告诉显示器"换到哪个接口"，安装包约 2 MB，平时安静地待在托盘里。
+MonitorSwitch 只做这一件事：通过 **DDC/CI** 直接告诉显示器"换到哪个接口"，安装包约 3 MB，平时安静地待在托盘里。
 
 ## 功能
 
@@ -34,6 +34,7 @@ MonitorSwitch 只做这一件事：通过 **DDC/CI** 直接告诉显示器"换�
 - 🔍 **快捷键冲突检测**：录制时如果组合键已被其他程序占用，当场提示；`Ctrl+C` 这类会抢走常用快捷键的组合直接拒绝
 - 🖥️ **不只是 Dell**：读取显示器自己报告的接口列表，支持大部分带 DDC/CI 的外接显示器；多台显示器分标签页
 - 🔌 **对 KVM 友好**：键盘接在显示器 USB 上也不怕，等你松开快捷键再切，Ctrl 不会"卡住"
+- 🔔 **更新提醒**：有新版本时，托盘面板和右键菜单里会提示，点一下就下载、校验签名并装好，设置保留
 - 🌙 **轻量**：Rust + 系统 WebView，不常驻额外服务；可设置开机启动
 
 ## 截图
@@ -74,6 +75,8 @@ MonitorSwitch 只做这一件事：通过 **DDC/CI** 直接告诉显示器"换�
 
 **设置里可以：** 给接口起名字 · 录快捷键（`Backspace` 清除、`Esc` 取消）· 选来回切换的两个接口 · 手动指定本机接口 · 开关屏幕提示 · 开机启动。
 
+**更新：** 启动 30 秒后和之后每 6 小时检查一次 GitHub Releases，只提醒不自动下载。设置 → 关于里可以手动检查，或关掉"自动检查更新"。
+
 **命令行：** `monitor-switch.exe --settings` 打开设置，`monitor-switch.exe --quit` 退出正在运行的程序（升级前用它，托盘不会留下残影）。
 
 ## 常见问题
@@ -102,6 +105,12 @@ MonitorSwitch 只做这一件事：通过 **DDC/CI** 直接告诉显示器"换�
 <summary><b>切换后键盘好像一直按着 Ctrl</b></summary>
 
 如果键盘接在显示器的 USB 口上，显示器的 KVM 会让键盘跟着输入源一起走。MonitorSwitch 会等你松开快捷键再发切换指令，避免这个问题；如果仍遇到，请提 Issue。
+</details>
+
+<details>
+<summary><b>点"更新"后发生了什么？</b></summary>
+
+MonitorSwitch 下载新版安装包，用内置的公钥校验签名（不对就拒绝安装），然后退出并运行安装包：只有一个小进度条，装完自动重新打开，设置都保留。如果失败了，点"去下载页"手动下载安装即可。0.1.1 及更早的版本没有更新功能，需要手动装一次 0.1.2。
 </details>
 
 <details>
@@ -134,6 +143,7 @@ flowchart LR
 npm install
 npm run tauri dev                              # 开发模式运行
 cargo test --manifest-path src-tauri/Cargo.toml  # 单元测试
+npm run test:scripts                           # 发布脚本的签名校验测试
 npm run tauri build                            # 生成安装包 src-tauri/target/release/bundle/nsis/
 ```
 
@@ -154,13 +164,23 @@ src-tauri/src/          后端（Rust）
 
 图标有两份源文件：`src-tauri/icons/icon.svg`（精细版，32 px 以上）和 `icon-small.svg`（按 16 像素网格画，托盘和 16–24 px 小图标用）。修改后运行 `npm run icons`，会重新生成所有尺寸、多尺寸的 `icon.ico` 和 `icons/tray/` 里的托盘图标；程序启动时按系统缩放挑对应尺寸的托盘图标，不会被缩放糊掉。设计文档见 [`docs/superpowers/specs`](docs/superpowers/specs/2026-11-12-monitorswitch-tray-design.md)。
 
+### 发布
+
+```bash
+npm run release -- --notes notes.md            # 带签名构建，校验签名，生成 latest.json
+npm run release -- --notes notes.md --publish  # 同时创建 GitHub Release
+```
+
+更新包用 `%USERPROFILE%\.tauri\monitor-switch.key` 签名（也可以用环境变量 `TAURI_SIGNING_PRIVATE_KEY` 提供），对应的公钥写在 `tauri.conf.json` 里。私钥不在仓库里，**务必另外备份**：丢了以后，已安装的程序就收不到更新了。发布前先把 `tauri.conf.json`、`Cargo.toml`、`package.json` 的版本号改成一致；脚本会检查。没有私钥也能用 `npm run tauri build` 正常构建，只是不生成更新包。
+
 ## 路线图
 
 - [x] Windows：托盘面板、快捷键、屏幕提示、本机识别、冲突检测
+- [x] 更新提醒，带签名校验
 - [ ] 识别新插入的设备并提示命名、自动学习每台设备接在哪个口
 - [ ] 显示"未连接"的显示器；锁屏时暂停轮询
 - [ ] 局域网内多台电脑互相发现
-- [ ] macOS / Linux 支持、自动构建与发布
+- [ ] macOS / Linux 支持、在 CI 里自动构建发布
 
 ## 致谢
 
