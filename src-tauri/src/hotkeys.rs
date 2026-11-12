@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Runtime};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Modifiers, Shortcut};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
 use crate::config::Config;
 use crate::model::MonitorKey;
@@ -36,6 +36,8 @@ pub fn shortcut_id(accelerator: &str) -> Result<u32, String> {
 
 /// Can `accelerator` be a global hotkey? A global hotkey takes the combination away from every
 /// other program, so one with a single Ctrl, Alt or Shift (Ctrl+C, Alt+F4, Shift+A) is refused.
+/// F13–F24 are the exception: no ordinary keyboard has them, so programs don't use them, and
+/// macro keys and mouse buttons are often mapped to them.
 pub fn check_combination(accelerator: &str) -> Result<(), String> {
     let shortcut = Shortcut::from_str(accelerator.trim()).map_err(|_| BAD_FORMAT.to_string())?;
     let mods = shortcut.mods;
@@ -43,7 +45,12 @@ pub fn check_combination(accelerator: &str) -> Result<(), String> {
         .into_iter()
         .filter(|m| mods.contains(*m))
         .count();
-    if mods.contains(Modifiers::SUPER) || count >= 2 {
+    let extra_f_key = matches!(
+        shortcut.key,
+        Code::F13 | Code::F14 | Code::F15 | Code::F16 | Code::F17 | Code::F18
+            | Code::F19 | Code::F20 | Code::F21 | Code::F22 | Code::F23 | Code::F24
+    );
+    if mods.contains(Modifiers::SUPER) || count >= 2 || extra_f_key {
         Ok(())
     } else {
         Err(TOO_COMMON.to_string())
@@ -160,6 +167,9 @@ mod tests {
         assert!(check_combination("Ctrl+Alt+M").is_ok());
         assert!(check_combination("ctrl+shift+F5").is_ok());
         assert!(check_combination("Super+K").is_ok());
+        assert!(check_combination("Ctrl+F13").is_ok());
+        assert!(check_combination("Alt+F24").is_ok());
+        assert_eq!(check_combination("Ctrl+F12"), Err(TOO_COMMON.to_string()));
     }
 
     #[test]
