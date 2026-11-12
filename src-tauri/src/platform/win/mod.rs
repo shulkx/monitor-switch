@@ -22,6 +22,12 @@ pub fn hide_window(hwnd: isize) {
     unsafe { ffi::ShowWindowAsync(hwnd, ffi::SW_HIDE) };
 }
 
+/// Width of a small icon (the tray's) at the system scaling: 16 px at 100 %, 24 px at 150 %.
+pub fn small_icon_size() -> u32 {
+    let size = unsafe { ffi::GetSystemMetricsForDpi(ffi::SM_CXSMICON, ffi::GetDpiForSystem()) };
+    if size > 0 { size as u32 } else { 16 }
+}
+
 /// Rename `from` over `to` and return only once the change is on disk, so it survives
 /// a system crash right afterwards (spec 6.4).
 pub fn replace_file_durably(from: &Path, to: &Path) -> io::Result<()> {

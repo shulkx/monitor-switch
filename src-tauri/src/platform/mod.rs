@@ -3,7 +3,7 @@ mod win;
 #[cfg(windows)]
 pub use win::{
     hide_window, is_laptop, mask_modifier_release, modifiers_down, replace_file_durably, show_without_focus,
-    start_recording, stop_recording, WinBackend as NativeBackend,
+    small_icon_size, start_recording, stop_recording, WinBackend as NativeBackend,
 };
 
 #[cfg(not(windows))]
@@ -23,6 +23,10 @@ pub fn mask_modifier_release() {}
 #[cfg(not(windows))]
 pub fn modifiers_down() -> bool {
     false
+}
+#[cfg(not(windows))]
+pub fn small_icon_size() -> u32 {
+    32
 }
 
 #[cfg(not(windows))]

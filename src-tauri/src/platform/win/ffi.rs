@@ -198,6 +198,7 @@ pub const SWP_NOMOVE: u32 = 0x2;
 pub const SWP_NOACTIVATE: u32 = 0x10;
 pub const SWP_SHOWWINDOW: u32 = 0x40;
 pub const SWP_ASYNCWINDOWPOS: u32 = 0x4000;
+pub const SM_CXSMICON: i32 = 49;
 
 pub const EDD_GET_DEVICE_INTERFACE_NAME: u32 = 0x1;
 pub const DISPLAY_DEVICE_ACTIVE: u32 = 0x1;
@@ -239,6 +240,8 @@ extern "system" {
     pub fn GetWindowThreadProcessId(hwnd: isize, process_id: *mut u32) -> u32;
     pub fn ShowWindowAsync(hwnd: isize, cmd: i32) -> i32;
     pub fn SetWindowPos(hwnd: isize, after: isize, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
+    pub fn GetDpiForSystem() -> u32;
+    pub fn GetSystemMetricsForDpi(index: i32, dpi: u32) -> i32;
 }
 
 #[link(name = "dxva2")]

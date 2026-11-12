@@ -1,23 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <!-- Source for every app icon: `npx tauri icon src-tauri/icons/icon.svg` -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- MonitorSwitch icon, detailed version for 32 px and up (small sizes: icon-small.svg).
+       A screen with its corner turned up: the other computer is underneath. Regenerate: npm run icons -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#5b9dff"/>
-      <stop offset="1" stop-color="#1d4ed8"/>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5D8FEF"/>
+      <stop offset="1" stop-color="#275BC1"/>
     </linearGradient>
-    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.24"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0.06"/>
+    <linearGradient id="flap" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#CE7714"/>
+      <stop offset="1" stop-color="#F6AF5D"/>
     </linearGradient>
   </defs>
-  <rect x="40" y="40" width="944" height="944" rx="216" fill="url(#bg)"/>
-  <!-- monitor -->
-  <rect x="196" y="232" width="632" height="424" rx="60" fill="url(#glass)" stroke="#ffffff" stroke-width="48"/>
-  <path d="M456 680 H568 L590 764 H434 Z" fill="#ffffff"/>
-  <rect x="352" y="758" width="320" height="52" rx="26" fill="#ffffff"/>
-  <!-- switch arrows -->
-  <g fill="none" stroke="#ffffff" stroke-width="46" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M368 392 H640 M578 330 L640 392 L578 454"/>
-    <path d="M656 516 H384 M446 454 L384 516 L446 578"/>
-  </g>
+  <path fill="url(#screen)" d="M4 3H28A3 3 0 0 1 31 6V12.75H24A3.25 3.25 0 0 0 20.75 16V23H4A3 3 0 0 1 1 20V6A3 3 0 0 1 4 3Z"/>
+  <path fill="url(#flap)" d="M31 14Q27.2 19.2 22 23V16A2 2 0 0 1 24 14Z"/>
+  <path fill="#275BC1" d="M14 23H18L18.6 26H13.4Z"/>
+  <rect x="9" y="26" width="14" height="3" rx="1.5" fill="#275BC1"/>
 </svg>

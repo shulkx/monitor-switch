@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- MonitorSwitch icon on a 16 px grid, for 16–24 px (tray, small icons). Detailed version: icon.svg.
+       Every edge sits on the pixel grid; the gap around the turned-up corner is 0.75 px. Regenerate: npm run icons -->
+  <defs>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5D8FEF"/>
+      <stop offset="1" stop-color="#275BC1"/>
+    </linearGradient>
+    <linearGradient id="flap" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#CE7714"/>
+      <stop offset="1" stop-color="#F6AF5D"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#screen)" d="M1.5 1H14.5A1.5 1.5 0 0 1 16 2.5V6.25H12.25A2 2 0 0 0 10.25 8.25V12H1.5A1.5 1.5 0 0 1 0 10.5V2.5A1.5 1.5 0 0 1 1.5 1Z"/>
+  <path fill="url(#flap)" d="M16 7L11 12V8.25A1.25 1.25 0 0 1 12.25 7Z"/>
+  <rect x="7" y="12" width="2" height="1" fill="#275BC1"/>
+  <rect x="4" y="13" width="8" height="2" rx="1" fill="#275BC1"/>
+</svg>

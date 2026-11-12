@@ -1,5 +1,6 @@
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::image::Image;
 use tauri::{AppHandle, Manager, Wry};
 
 use crate::app::{actions, flyout, state::AppState, windows};
@@ -81,11 +82,33 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 flyout::toggle_from_tray(tray.app_handle(), (position.x, position.y));
             }
         });
-    if let Some(icon) = app.default_window_icon() {
+    if let Some(icon) = tray_icon() {
+        builder = builder.icon(icon);
+    } else if let Some(icon) = app.default_window_icon() {
         builder = builder.icon(icon.clone());
     }
     builder.build(app)?;
     Ok(())
+}
+
+/// Tray icons drawn for each small-icon size (`npm run icons`), smallest first.
+const TRAY_ICONS: [(u32, &[u8]); 4] = [
+    (16, include_bytes!("../../icons/tray/16.png")),
+    (20, include_bytes!("../../icons/tray/20.png")),
+    (24, include_bytes!("../../icons/tray/24.png")),
+    (32, include_bytes!("../../icons/tray/32.png")),
+];
+
+/// The smallest drawn icon at least `want` px wide, else the biggest.
+fn tray_icon_index(want: u32) -> usize {
+    TRAY_ICONS.iter().position(|(size, _)| *size >= want).unwrap_or(TRAY_ICONS.len() - 1)
+}
+
+/// The icon drawn for this system's small-icon size (16 px at 100 % scaling, 24 px at 150 %),
+/// so Windows never blurs a bigger image down to fit the tray.
+fn tray_icon() -> Option<Image<'static>> {
+    let (_, bytes) = TRAY_ICONS[tray_icon_index(crate::platform::small_icon_size())];
+    Image::from_bytes(bytes).ok()
 }
 
 pub fn update(app: &AppHandle, view: &View) {
@@ -143,6 +166,17 @@ mod tests {
         let failed = MonitorState { switch_error: Some("切换可能没有生效".into()), ..state };
         let view = build_view(&[failed], &cfg, false, "PC");
         assert_eq!(tooltip_text(&view), "Dell U2723QE · 公司笔记本（USB-C） · 上次切换没有成功");
+    }
+
+    #[test]
+    fn picks_the_tray_icon_drawn_for_the_size() {
+        let size = |want| TRAY_ICONS[tray_icon_index(want)].0;
+        assert_eq!(size(16), 16);
+        assert_eq!(size(18), 20);
+        assert_eq!(size(24), 24);
+        assert_eq!(size(28), 32);
+        assert_eq!(size(48), 32);
+        assert!(TRAY_ICONS.iter().all(|(_, png)| Image::from_bytes(png).is_ok()));
     }
 
     #[test]

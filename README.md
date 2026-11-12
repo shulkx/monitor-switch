@@ -152,7 +152,7 @@ src-tauri/src/          后端（Rust）
 └─ hotkeys.rs           快捷键绑定与冲突检查
 ```
 
-图标源文件在 `src-tauri/icons/icon.svg`，修改后运行 `npx tauri icon src-tauri/icons/icon.svg` 重新生成各尺寸。设计文档见 [`docs/superpowers/specs`](docs/superpowers/specs/2026-11-12-monitorswitch-tray-design.md)。
+图标有两份源文件：`src-tauri/icons/icon.svg`（精细版，32 px 以上）和 `icon-small.svg`（按 16 像素网格画，托盘和 16–24 px 小图标用）。修改后运行 `npm run icons`，会重新生成所有尺寸、多尺寸的 `icon.ico` 和 `icons/tray/` 里的托盘图标；程序启动时按系统缩放挑对应尺寸的托盘图标，不会被缩放糊掉。设计文档见 [`docs/superpowers/specs`](docs/superpowers/specs/2026-11-12-monitorswitch-tray-design.md)。
 
 ## 路线图
 
