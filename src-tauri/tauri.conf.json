@@ -26,5 +26,12 @@
     "windows": {
       "nsis": { "installMode": "currentUser", "installerIcon": "icons/icon.ico" }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENBNDZDRTNCQ0FBMjM1RTEKUldUaE5hTEtPODVHeXFkSUU4RExEQVF2anVhUDZDV1RxRGlyU0NxRExEazRScTh6OXVKcURkNm8K",
+      "endpoints": ["https://github.com/shulkx/monitor-switch/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
   }
 }

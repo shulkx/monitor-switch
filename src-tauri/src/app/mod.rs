@@ -3,6 +3,7 @@ pub mod flyout;
 pub mod osd;
 pub mod state;
 pub mod tray;
+pub mod updater;
 pub mod windows;
 
 use std::sync::{Arc, Mutex};
@@ -44,6 +45,8 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         flyout: FlyoutState::default(),
         is_laptop,
         computer_name: platform::computer_name(),
+        app_version: app.package_info().version.to_string(),
+        updates: updater::UpdateState::default(),
     });
 
     windows::create_flyout(app)?;
@@ -52,5 +55,6 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     actions::apply_hotkeys(app);
     actions::sync_autostart(app);
     actions::publish_view(app);
+    updater::start_background_checks(app);
     Ok(())
 }

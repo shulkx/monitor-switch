@@ -3,8 +3,9 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::image::Image;
 use tauri::{AppHandle, Manager, Wry};
 
-use crate::app::{actions, flyout, state::AppState, windows};
+use crate::app::{actions, flyout, state::AppState, updater, windows};
 use crate::model::MonitorKey;
+use crate::updates::UpdateStatus;
 use crate::view::{MonitorView, PortView, View};
 
 pub const TRAY_ID: &str = "main";
@@ -58,6 +59,15 @@ pub fn build_menu(app: &AppHandle, view: &View) -> tauri::Result<Menu<Wry>> {
     }
     if !view.monitors.is_empty() {
         menu.append(&PredefinedMenuItem::separator(app)?)?;
+    }
+    match &view.update {
+        UpdateStatus::Available { version, .. } => {
+            menu.append(&MenuItem::with_id(app, "update", format!("更新到 {version}"), true, None::<&str>)?)?;
+        }
+        UpdateStatus::Downloading { .. } => {
+            menu.append(&MenuItem::with_id(app, "update", "正在下载更新…", false, None::<&str>)?)?;
+        }
+        _ => {}
     }
     menu.append(&MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?)?;
     menu.append(&MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?)?;
@@ -127,6 +137,12 @@ fn on_menu(app: &AppHandle, id: &str) {
             // Creating a window inside an event handler can deadlock on Windows; do it off-thread.
             let app = app.clone();
             std::thread::spawn(move || windows::open_settings(&app));
+        }
+        "update" => {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = updater::install(&app).await;
+            });
         }
         "quit" => app.exit(0),
         other => {

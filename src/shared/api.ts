@@ -29,6 +29,16 @@ export interface MonitorView {
   readCapabilities: boolean;
 }
 
+/** What the update reminder shows. */
+export type UpdateStatus =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "upToDate" }
+  | { state: "available"; version: string; notes: string | null }
+  | { state: "downloading"; version: string; percent: number | null }
+  /** `version` is set when installing it failed, null when checking failed. */
+  | { state: "failed"; message: string; version: string | null };
+
 export interface View {
   monitors: MonitorView[];
   showOsd: boolean;
@@ -37,9 +47,12 @@ export interface View {
   toggleHotkey: string | null;
   computerName: string;
   failedHotkeys: string[];
+  checkUpdates: boolean;
+  appVersion: string;
+  update: UpdateStatus;
 }
 
-export type OptionName = "showOsd" | "autostart" | "lanDiscovery";
+export type OptionName = "showOsd" | "autostart" | "lanDiscovery" | "checkUpdates";
 
 export const api = {
   getView: () => invoke<View>("get_view"),
@@ -60,6 +73,9 @@ export const api = {
   openSettings: () => invoke<void>("open_settings"),
   hideFlyout: () => invoke<void>("hide_flyout"),
   fitFlyout: (height: number) => invoke<void>("fit_flyout", { height }),
+  checkForUpdates: () => invoke<void>("check_for_updates"),
+  installUpdate: () => invoke<void>("install_update"),
+  openReleasePage: () => invoke<void>("open_release_page"),
 };
 
 export function onView(callback: (view: View) => void): Promise<UnlistenFn> {

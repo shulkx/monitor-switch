@@ -191,3 +191,36 @@
   line-height: 1.6;
   color: var(--muted);
 }
+
+.update {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 12px;
+  background: var(--tile);
+  font-size: 12px;
+}
+
+.update-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.update.failed .update-text {
+  color: #fecaca;
+}
+
+.update-btn {
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}

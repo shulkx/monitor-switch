@@ -232,3 +232,46 @@ input[type="text"]:focus-visible {
   margin: 6px 0 0;
   line-height: 1.6;
 }
+
+.about-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.about-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.about-text .note {
+  margin: 0;
+}
+
+.btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1b1c1f;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.release-notes {
+  white-space: pre-line;
+}

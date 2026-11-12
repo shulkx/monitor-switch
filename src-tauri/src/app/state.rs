@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::app::flyout::FlyoutState;
+use crate::app::updater::UpdateState;
 use crate::config::{Config, ConfigStore};
 use crate::hotkeys::HotkeyRegistry;
 use crate::model::MonitorKey;
@@ -18,6 +19,8 @@ pub struct AppState {
     pub flyout: FlyoutState,
     pub is_laptop: bool,
     pub computer_name: String,
+    pub app_version: String,
+    pub updates: UpdateState,
 }
 
 impl AppState {
@@ -25,6 +28,8 @@ impl AppState {
         let cfg = self.config.lock().unwrap();
         let mut view = build_view(&self.service.snapshot(), &cfg, self.is_laptop, &self.computer_name);
         view.failed_hotkeys = self.failed_hotkeys.lock().unwrap().clone();
+        view.app_version = self.app_version.clone();
+        view.update = self.updates.status.lock().unwrap().clone();
         view
     }
 

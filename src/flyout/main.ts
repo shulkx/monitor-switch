@@ -38,12 +38,28 @@ function toggleTile(monitor: MonitorView, v: View): string {
   </button>`;
 }
 
+/** A new version, its download, or a failed install: one line at the bottom of the panel. */
+function updateBar(v: View): string {
+  const u = v.update;
+  if (u.state === "available") {
+    return `<div class="update"><span class="update-text">新版本 ${esc(u.version)}</span><button class="update-btn" data-install>更新</button></div>`;
+  }
+  if (u.state === "downloading") {
+    const progress = u.percent === null ? "…" : ` · ${u.percent}%`;
+    return `<div class="update"><span class="update-text">正在下载 ${esc(u.version)}${progress}</span></div>`;
+  }
+  if (u.state === "failed" && u.version) {
+    return `<div class="update failed"><span class="update-text">${esc(u.message)}</span><button class="update-btn" data-release>去下载页</button></div>`;
+  }
+  return "";
+}
+
 function render(): void {
   if (!view) return;
   const monitor = selectedMonitor(view);
   if (!monitor) {
     panel.innerHTML = `<div class="head"><div class="titles"><span class="title">MonitorSwitch</span></div>${settingsButton()}</div>
-      <p class="empty">没找到能控制的显示器。确认显示器菜单里 DDC/CI 已开启，并且接的是外接显示器。</p>`;
+      <p class="empty">没找到能控制的显示器。确认显示器菜单里 DDC/CI 已开启，并且接的是外接显示器。</p>${updateBar(view)}`;
     afterRender();
     return;
   }
@@ -63,7 +79,8 @@ function render(): void {
   panel.innerHTML = `${tabs}
     <div class="head"><div class="titles">${title}<span class="sub">${sub}</span></div>${settingsButton()}</div>
     ${error ? `<div class="error" role="alert">${esc(error)}</div>` : ""}
-    <div class="grid">${monitor.ports.map((p) => tile(monitor, p)).join("")}${toggleTile(monitor, view)}</div>`;
+    <div class="grid">${monitor.ports.map((p) => tile(monitor, p)).join("")}${toggleTile(monitor, view)}</div>
+    ${updateBar(view)}`;
   afterRender();
 }
 
@@ -80,6 +97,11 @@ function afterRender(): void {
     }),
   );
   panel.querySelector<HTMLButtonElement>("[data-toggle]")?.addEventListener("click", () => void api.toggle());
+  panel.querySelector<HTMLButtonElement>("[data-install]")?.addEventListener("click", () => void api.installUpdate());
+  panel.querySelector<HTMLButtonElement>("[data-release]")?.addEventListener("click", () => {
+    void api.openReleasePage();
+    void api.hideFlyout();
+  });
   panel.querySelectorAll<HTMLButtonElement>("[data-settings]").forEach((b) =>
     b.addEventListener("click", () => void api.openSettings()),
   );

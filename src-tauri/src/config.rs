@@ -19,6 +19,8 @@ pub struct Config {
     /// Used by plan 3 (LAN discovery).
     pub lan_discovery: bool,
     pub autostart: bool,
+    /// Look for a new version on GitHub every few hours.
+    pub check_updates: bool,
     pub toggle_hotkey: Option<String>,
     pub monitors: BTreeMap<String, MonitorConfig>,
 }
@@ -30,6 +32,7 @@ impl Default for Config {
             show_osd: true,
             lan_discovery: true,
             autostart: true,
+            check_updates: true,
             toggle_hotkey: Some("Ctrl+Alt+M".into()),
             monitors: BTreeMap::new(),
         }
@@ -194,6 +197,13 @@ mod tests {
         assert!(cfg.show_osd && cfg.autostart && cfg.lan_discovery);
         assert_eq!(cfg.toggle_hotkey.as_deref(), Some("Ctrl+Alt+M"));
         assert!(MonitorConfig::default().read_capabilities);
+    }
+
+    #[test]
+    fn settings_from_before_update_checks_turn_them_on() {
+        let cfg: Config = serde_json::from_str(r#"{"version":1,"showOsd":false}"#).unwrap();
+        assert!(cfg.check_updates);
+        assert!(!cfg.show_osd);
     }
 
     #[test]

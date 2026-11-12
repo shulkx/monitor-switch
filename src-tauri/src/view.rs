@@ -7,6 +7,7 @@ use crate::ddc::caps::input_label;
 use crate::model::{ConnectionKind, MonitorKey};
 use crate::monitor_service::MonitorState;
 use crate::toggle::default_pair;
+use crate::updates::UpdateStatus;
 
 pub const UNNAMED: &str = "未命名";
 
@@ -55,6 +56,11 @@ pub struct View {
     pub computer_name: String,
     /// Accelerators the OS refused to register (filled in by AppState).
     pub failed_hotkeys: Vec<String>,
+    pub check_updates: bool,
+    /// This build's version (filled in by AppState).
+    pub app_version: String,
+    /// What the update reminder shows (filled in by AppState).
+    pub update: UpdateStatus,
 }
 
 pub fn build_view(states: &[MonitorState], cfg: &Config, is_laptop: bool, computer_name: &str) -> View {
@@ -66,6 +72,9 @@ pub fn build_view(states: &[MonitorState], cfg: &Config, is_laptop: bool, comput
         toggle_hotkey: cfg.toggle_hotkey.clone(),
         computer_name: computer_name.to_string(),
         failed_hotkeys: Vec::new(),
+        check_updates: cfg.check_updates,
+        app_version: String::new(),
+        update: UpdateStatus::Idle,
     }
 }
 

@@ -2,7 +2,7 @@
 
 use tauri::{AppHandle, Manager, State};
 
-use crate::app::{actions, flyout, state::AppState, windows};
+use crate::app::{actions, flyout, state::AppState, updater, windows};
 use crate::hotkeys::HotkeyTarget;
 use crate::model::MonitorKey;
 use crate::view::View;
@@ -100,6 +100,7 @@ pub fn set_option(app: AppHandle, name: String, value: bool) -> Result<(), Strin
     match name.as_str() {
         "showOsd" => state.update(|cfg| cfg.show_osd = value)?,
         "lanDiscovery" => state.update(|cfg| cfg.lan_discovery = value)?,
+        "checkUpdates" => state.update(|cfg| cfg.check_updates = value)?,
         "autostart" => {
             state.update(|cfg| cfg.autostart = value)?;
             actions::sync_autostart(&app);
@@ -124,4 +125,22 @@ pub fn hide_flyout(app: AppHandle) {
 #[tauri::command]
 pub fn fit_flyout(app: AppHandle, height: f64) {
     flyout::fit(&app, height);
+}
+
+/// "检查更新" in settings.
+#[tauri::command]
+pub async fn check_for_updates(app: AppHandle) {
+    updater::check(&app, true).await;
+}
+
+/// "更新": download, verify and install the version the last check found.
+#[tauri::command]
+pub async fn install_update(app: AppHandle) -> Result<(), String> {
+    updater::install(&app).await
+}
+
+/// "去下载页": the release page, for installing by hand when updating in place failed.
+#[tauri::command]
+pub fn open_release_page() {
+    crate::platform::open_url(updater::RELEASES_URL);
 }

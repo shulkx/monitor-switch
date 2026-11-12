@@ -113,6 +113,44 @@ function switchRow(name: OptionName, text: string, on: boolean): string {
   return `<label class="switch-row"><span>${text}</span><input type="checkbox" data-opt="${name}"${on ? " checked" : ""} /></label>`;
 }
 
+/** Version, update status and the button that fits it. */
+function aboutSection(v: View): string {
+  const u = v.update;
+  const check = `<button class="btn" data-check>检查更新</button>`;
+  let status = "";
+  let actions = check;
+  switch (u.state) {
+    case "checking":
+      status = "正在检查…";
+      actions = "";
+      break;
+    case "upToDate":
+      status = "已是最新版本";
+      break;
+    case "available":
+      status = `发现新版本 ${esc(u.version)}`;
+      actions = `<button class="btn primary" data-install>更新到 ${esc(u.version)}</button>`;
+      break;
+    case "downloading":
+      status = `正在下载 ${esc(u.version)}${u.percent === null ? "…" : ` · ${u.percent}%`}`;
+      actions = "";
+      break;
+    case "failed":
+      status = `<span class="err">${esc(u.message)}</span>`;
+      actions = `${check}<button class="btn" data-release>去下载页</button>`;
+      break;
+  }
+  const notes = u.state === "available" && u.notes ? `<p class="note release-notes">${esc(u.notes)}</p>` : "";
+  return `<div class="section-title">关于</div>
+    <div class="card">
+      <div class="about-row">
+        <div class="about-text"><span>MonitorSwitch ${esc(v.appVersion)}</span>${status ? `<span class="note">${status}</span>` : ""}</div>
+        ${actions}
+      </div>
+      ${switchRow("checkUpdates", "自动检查更新", v.checkUpdates)}
+    </div>${notes}`;
+}
+
 function render(): void {
   if (!view) return;
   // Don't wipe out what the user is typing; render again when the field loses focus.
@@ -131,7 +169,8 @@ function render(): void {
     <div class="card">
       ${switchRow("showOsd", "切换时显示屏幕提示", view.showOsd)}
       ${switchRow("autostart", "开机时启动", view.autostart)}
-    </div>`;
+    </div>
+    ${aboutSection(view)}`;
   bind();
 }
 
@@ -190,6 +229,10 @@ function bind(): void {
     if (!monitor) return;
     void run("caps", () => api.setReadCapabilities(monitor.key, (e.target as HTMLInputElement).checked));
   });
+
+  root.querySelector<HTMLButtonElement>("[data-check]")?.addEventListener("click", () => void api.checkForUpdates());
+  root.querySelector<HTMLButtonElement>("[data-install]")?.addEventListener("click", () => void api.installUpdate());
+  root.querySelector<HTMLButtonElement>("[data-release]")?.addEventListener("click", () => void api.openReleasePage());
 
   root.querySelectorAll<HTMLInputElement>("input[data-opt]").forEach((input) =>
     input.addEventListener("change", () => {

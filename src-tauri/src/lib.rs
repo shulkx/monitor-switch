@@ -8,6 +8,7 @@ pub mod model;
 pub mod monitor_service;
 pub mod platform;
 pub mod toggle;
+pub mod updates;
 pub mod view;
 
 use tauri_plugin_autostart::MacosLauncher;
@@ -45,6 +46,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::get_view,
             commands::refresh,
@@ -62,6 +64,9 @@ pub fn run() {
             commands::open_settings,
             commands::hide_flyout,
             commands::fit_flyout,
+            commands::check_for_updates,
+            commands::install_update,
+            commands::open_release_page,
         ])
         .setup(|app| {
             // Only reached when no other copy is running (the single-instance plugin forwards
