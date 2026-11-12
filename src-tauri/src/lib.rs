@@ -11,18 +11,34 @@ pub mod toggle;
 pub mod view;
 
 use tauri_plugin_autostart::MacosLauncher;
-use tauri_plugin_global_shortcut::ShortcutState;
+use tauri_plugin_global_shortcut::{Modifiers, ShortcutState};
+
+const QUIT_ARG: &str = "--quit";
+const SETTINGS_ARG: &str = "--settings";
 
 pub fn run() {
     tauri::Builder::default()
-        // Must be the first plugin: a second launch just opens the running app's panel.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            app::flyout::show_default(app);
+        // Must be the first plugin: a second launch just opens the running app's panel,
+        // opens its settings with --settings, or quits it with --quit (used before
+        // reinstalling, so no stale tray icon is left).
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if args.iter().any(|a| a == QUIT_ARG) {
+                app.exit(0);
+            } else if args.iter().any(|a| a == SETTINGS_ARG) {
+                // Creating a window here would deadlock on Windows; see app::windows.
+                let app = app.clone();
+                std::thread::spawn(move || app::windows::open_settings(&app));
+            } else {
+                app::flyout::show_default(app);
+            }
         }))
         .plugin(
             tauri_plugin_global_shortcut::Builder::<tauri::Wry>::new()
                 .with_handler(|app, shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
+                        if shortcut.mods.intersects(Modifiers::ALT | Modifiers::SUPER) {
+                            platform::mask_modifier_release();
+                        }
                         app::actions::on_hotkey(app, shortcut.id());
                     }
                 })
@@ -37,8 +53,8 @@ pub fn run() {
             commands::set_port_name,
             commands::set_port_hotkey,
             commands::set_toggle_hotkey,
-            commands::pause_hotkeys,
-            commands::resume_hotkeys,
+            commands::start_hotkey_recording,
+            commands::stop_hotkey_recording,
             commands::set_toggle_pair,
             commands::set_local_override,
             commands::set_read_capabilities,
@@ -48,6 +64,11 @@ pub fn run() {
             commands::fit_flyout,
         ])
         .setup(|app| {
+            // Only reached when no other copy is running (the single-instance plugin forwards
+            // the arguments to a running copy and ends this process first): nothing to quit.
+            if std::env::args().any(|a| a == QUIT_ARG) {
+                std::process::exit(0);
+            }
             app::setup(app.handle())?;
             Ok(())
         })

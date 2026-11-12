@@ -1,6 +1,7 @@
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::window::Color;
+use tauri::{AppHandle, Manager, Theme, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
-use crate::app::{flyout, osd};
+use crate::app::{actions, flyout, osd};
 
 pub const SETTINGS_LABEL: &str = "settings";
 
@@ -49,7 +50,7 @@ pub fn create_osd(app: &AppHandle) -> tauri::Result<()> {
         if let WindowEvent::CloseRequested { api, .. } = event {
             api.prevent_close();
             if let Some(win) = handle.get_webview_window(osd::OSD_LABEL) {
-                let _ = win.hide();
+                osd::dismiss(&win);
             }
         }
     });
@@ -66,8 +67,21 @@ pub fn open_settings(app: &AppHandle) {
         let _ = win.set_focus();
         return;
     }
-    let _ = WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App("settings.html".into()))
+    let built = WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App("settings.html".into()))
         .title("MonitorSwitch 设置")
-        .inner_size(520.0, 680.0)
+        .inner_size(520.0, 720.0)
+        .min_inner_size(420.0, 480.0)
+        // The page is dark; without this Windows 10 draws a white title bar above it.
+        .theme(Some(Theme::Dark))
+        .background_color(Color(0x1e, 0x1f, 0x22, 0xff))
         .build();
+    if let Ok(win) = built {
+        let handle = app.clone();
+        win.on_window_event(move |event| {
+            // Closed in the middle of recording a hotkey: turn the hotkeys back on.
+            if let WindowEvent::Destroyed = event {
+                actions::stop_recording(&handle);
+            }
+        });
+    }
 }

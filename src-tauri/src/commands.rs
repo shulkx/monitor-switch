@@ -48,14 +48,14 @@ pub fn set_toggle_hotkey(app: AppHandle, accelerator: Option<String>) -> Result<
 
 /// The settings page is about to record a hotkey.
 #[tauri::command]
-pub fn pause_hotkeys(app: AppHandle) {
-    actions::pause_hotkeys(&app);
+pub fn start_hotkey_recording(app: AppHandle) {
+    actions::start_recording(&app);
 }
 
 /// Recording finished or was cancelled.
 #[tauri::command]
-pub fn resume_hotkeys(app: AppHandle) {
-    actions::apply_hotkeys(&app);
+pub fn stop_hotkey_recording(app: AppHandle) {
+    actions::stop_recording(&app);
 }
 
 #[tauri::command]

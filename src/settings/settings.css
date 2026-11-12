@@ -27,9 +27,48 @@ h1 {
   margin-bottom: 10px;
 }
 
-.row > label {
+.row > label,
+.row > .row-label {
   color: var(--muted);
   white-space: nowrap;
+}
+
+.swap {
+  color: var(--faint);
+  font-size: 15px;
+}
+
+.hint {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+select {
+  text-overflow: ellipsis;
+}
+
+option {
+  background: #1b1c1f;
+  color: var(--text);
+}
+
+/* Windows draws grey, light-theme scrollbars unless told otherwise. */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border: 3px solid #1e1f22;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.26);
 }
 
 .grow {

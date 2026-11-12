@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Runtime};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Modifiers, Shortcut};
 
 use crate::config::Config;
 use crate::model::MonitorKey;
@@ -13,6 +13,7 @@ use crate::model::MonitorKey;
 pub const BAD_FORMAT: &str = "这个组合键用不了，换一个";
 pub const IN_USE_HERE: &str = "这个快捷键已经给别的接口用了";
 pub const IN_USE_ELSEWHERE: &str = "已被其他程序占用，换一个";
+pub const TOO_COMMON: &str = "只带一个 Ctrl、Alt 或 Shift 的组合会抢走其他软件的快捷键（比如 Ctrl+C），再加一个，比如 Ctrl+Alt+…";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HotkeyAction {
@@ -31,6 +32,22 @@ pub fn shortcut_id(accelerator: &str) -> Result<u32, String> {
     Shortcut::from_str(accelerator.trim())
         .map(|s| s.id())
         .map_err(|_| BAD_FORMAT.to_string())
+}
+
+/// Can `accelerator` be a global hotkey? A global hotkey takes the combination away from every
+/// other program, so one with a single Ctrl, Alt or Shift (Ctrl+C, Alt+F4, Shift+A) is refused.
+pub fn check_combination(accelerator: &str) -> Result<(), String> {
+    let shortcut = Shortcut::from_str(accelerator.trim()).map_err(|_| BAD_FORMAT.to_string())?;
+    let mods = shortcut.mods;
+    let count = [Modifiers::CONTROL, Modifiers::ALT, Modifiers::SHIFT, Modifiers::SUPER]
+        .into_iter()
+        .filter(|m| mods.contains(*m))
+        .count();
+    if mods.contains(Modifiers::SUPER) || count >= 2 {
+        Ok(())
+    } else {
+        Err(TOO_COMMON.to_string())
+    }
 }
 
 /// Every configured hotkey: the toggle first, then per-input hotkeys.
@@ -132,6 +149,17 @@ mod tests {
         assert!(shortcut_id("Ctrl+Alt+M").is_ok());
         assert_eq!(shortcut_id("ctrl+alt+m"), shortcut_id("Ctrl+Alt+M"));
         assert_eq!(shortcut_id("Ctrl+Alt+Nope"), Err(BAD_FORMAT.to_string()));
+    }
+
+    #[test]
+    fn refuses_combinations_other_programs_rely_on() {
+        assert_eq!(check_combination("Ctrl+C"), Err(TOO_COMMON.to_string()));
+        assert_eq!(check_combination("Alt+F4"), Err(TOO_COMMON.to_string()));
+        assert_eq!(check_combination("Shift+A"), Err(TOO_COMMON.to_string()));
+        assert_eq!(check_combination("Ctrl+Alt+Nope"), Err(BAD_FORMAT.to_string()));
+        assert!(check_combination("Ctrl+Alt+M").is_ok());
+        assert!(check_combination("ctrl+shift+F5").is_ok());
+        assert!(check_combination("Super+K").is_ok());
     }
 
     #[test]

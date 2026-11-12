@@ -24,9 +24,14 @@ function tile(monitor: MonitorView, port: PortView): string {
 }
 
 /** Without a toggle pair the tile can't switch anything, so it opens settings instead. */
-function toggleTile(monitor: MonitorView, toggleHotkey: string | null): string {
+function toggleTile(monitor: MonitorView, v: View): string {
   const ready = monitor.togglePair !== null;
-  const hint = ready ? prettyAccelerator(toggleHotkey) || "未设置快捷键" : "先在设置里选好两个接口";
+  const taken = v.toggleHotkey !== null && v.failedHotkeys.includes(v.toggleHotkey);
+  const hint = !ready
+    ? "先在设置里选好两个接口"
+    : taken
+      ? "快捷键被占用，去设置换一个"
+      : prettyAccelerator(v.toggleHotkey) || "未设置快捷键";
   return `<button class="tile" ${ready ? "data-toggle" : "data-settings"}>
     <span class="top"><span class="glyph">${icon("toggle", 20)}</span></span>
     <span class="labels"><span class="name">来回切换</span><span class="port">${esc(hint)}</span></span>
@@ -58,7 +63,7 @@ function render(): void {
   panel.innerHTML = `${tabs}
     <div class="head"><div class="titles">${title}<span class="sub">${sub}</span></div>${settingsButton()}</div>
     ${error ? `<div class="error" role="alert">${esc(error)}</div>` : ""}
-    <div class="grid">${monitor.ports.map((p) => tile(monitor, p)).join("")}${toggleTile(monitor, view.toggleHotkey)}</div>`;
+    <div class="grid">${monitor.ports.map((p) => tile(monitor, p)).join("")}${toggleTile(monitor, view)}</div>`;
   afterRender();
 }
 

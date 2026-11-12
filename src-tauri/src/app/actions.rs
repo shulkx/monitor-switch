@@ -1,21 +1,24 @@
 //! What happens when the user switches, presses a hotkey, or the monitor changes.
 
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-use crate::app::{osd, state::AppState, tray};
+use crate::app::{osd, state::AppState, tray, windows};
 use crate::hotkeys::{self, HotkeyAction, HotkeyTarget, IN_USE_ELSEWHERE, IN_USE_HERE};
 use crate::model::MonitorKey;
 use crate::monitor_service::ServiceEvent;
+use crate::platform;
 use crate::toggle::toggle_target;
 
 /// How long the "正在切换到" prompt stays on this screen before the switch is sent (spec 5.2).
 const PRE_SWITCH_PROMPT: Duration = Duration::from_millis(600);
+/// Longest wait for the hotkey's keys to be let go before switching away anyway.
+const KEY_RELEASE_WAIT: Duration = Duration::from_secs(2);
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,17 +34,32 @@ pub fn perform_switch(app: &AppHandle, key: MonitorKey, value: u16) {
     let Some(monitor) = view.monitors.iter().find(|m| m.key == key) else { return };
     let port = monitor.ports.iter().find(|p| p.value == value);
     let leaving_this_computer = !port.map(|p| p.is_local).unwrap_or(false);
-    if view.show_osd && leaving_this_computer {
+    if !leaving_this_computer {
+        state.service.switch(key, value);
+        return;
+    }
+    if view.show_osd {
         if let Some(port) = port {
             osd::show(app, osd::for_port("正在切换到", monitor, port));
         }
-        let app = app.clone();
-        thread::spawn(move || {
+    }
+    let prompt = view.show_osd;
+    let app = app.clone();
+    thread::spawn(move || {
+        if prompt {
             thread::sleep(PRE_SWITCH_PROMPT);
-            app.state::<AppState>().service.switch(key, value);
-        });
-    } else {
-        state.service.switch(key, value);
+        }
+        wait_for_key_release();
+        app.state::<AppState>().service.switch(key, value);
+    });
+}
+
+/// Many monitors move their USB hub (and the keyboard on it) to the new input. Switching while
+/// the hotkey's Ctrl is still down would leave Ctrl stuck on this computer.
+fn wait_for_key_release() {
+    let started = Instant::now();
+    while platform::modifiers_down() && started.elapsed() < KEY_RELEASE_WAIT {
+        thread::sleep(Duration::from_millis(20));
     }
 }
 
@@ -104,10 +122,24 @@ pub fn publish_view(app: &AppHandle) {
     let _ = app.emit("view-changed", view);
 }
 
-/// While the settings page records a hotkey, unregister every hotkey so the keystroke reaches
-/// the page instead of switching the monitor. `apply_hotkeys` turns them back on.
-pub fn pause_hotkeys(app: &AppHandle) {
+/// The settings page starts recording a hotkey. Our own hotkeys are turned off so pressing one
+/// records it instead of switching the monitor. On Windows a keyboard hook also catches
+/// combinations other programs own, which would otherwise never reach the page.
+pub fn start_recording(app: &AppHandle) {
     let _ = app.global_shortcut().unregister_all();
+    let handle = app.clone();
+    platform::start_recording(move |accelerator| {
+        // Called from inside the keyboard hook, which must return quickly.
+        thread::spawn(move || {
+            let _ = handle.emit_to(windows::SETTINGS_LABEL, "hotkey-recorded", accelerator);
+        });
+    });
+}
+
+/// Recording finished, was cancelled, or the settings window closed.
+pub fn stop_recording(app: &AppHandle) {
+    platform::stop_recording();
+    apply_hotkeys(app);
 }
 
 /// Register every configured hotkey again and remember which ones the OS refused.
@@ -123,7 +155,7 @@ pub fn set_hotkey(app: &AppHandle, target: HotkeyTarget, accelerator: Option<Str
     let state = app.state::<AppState>();
     let accelerator = accelerator.map(|a| a.trim().to_string()).filter(|a| !a.is_empty());
     if let Some(a) = &accelerator {
-        hotkeys::shortcut_id(a)?;
+        hotkeys::check_combination(a)?;
     }
     let previous = {
         let mut cfg = state.config.lock().unwrap();

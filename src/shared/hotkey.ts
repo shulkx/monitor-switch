@@ -7,6 +7,8 @@ const MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta"]);
  */
 export function acceleratorFromEvent(e: KeyboardEvent): string | null {
   if (MODIFIER_KEYS.has(e.key)) return null;
+  // The recorder taps an unassigned key to keep Alt from opening a menu; it has no code.
+  if (!e.code || e.code === "Unidentified") return null;
   const parts: string[] = [];
   if (e.ctrlKey) parts.push("Ctrl");
   if (e.altKey) parts.push("Alt");

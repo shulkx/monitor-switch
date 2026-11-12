@@ -128,6 +128,77 @@ pub struct SYSTEM_POWER_STATUS {
     pub battery_full_life_time: u32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct POINT {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct MSG {
+    pub hwnd: isize,
+    pub message: u32,
+    pub wparam: usize,
+    pub lparam: isize,
+    pub time: u32,
+    pub pt: POINT,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct KBDLLHOOKSTRUCT {
+    pub vk_code: u32,
+    pub scan_code: u32,
+    pub flags: u32,
+    pub time: u32,
+    pub extra_info: usize,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct KEYBDINPUT {
+    pub vk: u16,
+    pub scan: u16,
+    pub flags: u32,
+    pub time: u32,
+    pub extra_info: usize,
+}
+
+/// INPUT with the keyboard member of the union; the padding covers MOUSEINPUT, the largest member.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct INPUT {
+    pub kind: u32,
+    pub ki: KEYBDINPUT,
+    pub _pad: [u8; 8],
+}
+
+pub type HookProc = unsafe extern "system" fn(i32, usize, isize) -> isize;
+
+pub const WH_KEYBOARD_LL: i32 = 13;
+pub const HC_ACTION: i32 = 0;
+pub const WM_QUIT: u32 = 0x0012;
+pub const WM_KEYDOWN: u32 = 0x0100;
+pub const WM_SYSKEYDOWN: u32 = 0x0104;
+pub const LLKHF_INJECTED: u32 = 0x10;
+pub const PM_NOREMOVE: u32 = 0;
+pub const INPUT_KEYBOARD: u32 = 1;
+pub const KEYEVENTF_KEYUP: u32 = 0x2;
+pub const VK_SHIFT: i32 = 0x10;
+pub const VK_CONTROL: i32 = 0x11;
+pub const VK_MENU: i32 = 0x12;
+pub const VK_LWIN: i32 = 0x5B;
+pub const VK_RWIN: i32 = 0x5C;
+pub const SW_HIDE: i32 = 0;
+pub const HWND_TOPMOST: isize = -1;
+pub const SWP_NOSIZE: u32 = 0x1;
+pub const SWP_NOMOVE: u32 = 0x2;
+pub const SWP_NOACTIVATE: u32 = 0x10;
+pub const SWP_SHOWWINDOW: u32 = 0x40;
+pub const SWP_ASYNCWINDOWPOS: u32 = 0x4000;
+
 pub const EDD_GET_DEVICE_INTERFACE_NAME: u32 = 0x1;
 pub const DISPLAY_DEVICE_ACTIVE: u32 = 0x1;
 pub const QDC_ONLY_ACTIVE_PATHS: u32 = 0x2;
@@ -156,6 +227,18 @@ extern "system" {
         topology: *mut u32,
     ) -> i32;
     pub fn DisplayConfigGetDeviceInfo(header: *mut DISPLAYCONFIG_DEVICE_INFO_HEADER) -> i32;
+    pub fn SetWindowsHookExW(id: i32, proc_: Option<HookProc>, module: isize, thread_id: u32) -> isize;
+    pub fn CallNextHookEx(hook: isize, code: i32, wparam: usize, lparam: isize) -> isize;
+    pub fn UnhookWindowsHookEx(hook: isize) -> i32;
+    pub fn GetMessageW(msg: *mut MSG, hwnd: isize, min: u32, max: u32) -> i32;
+    pub fn PeekMessageW(msg: *mut MSG, hwnd: isize, min: u32, max: u32, remove: u32) -> i32;
+    pub fn PostThreadMessageW(thread_id: u32, msg: u32, wparam: usize, lparam: isize) -> i32;
+    pub fn GetAsyncKeyState(vk: i32) -> i16;
+    pub fn SendInput(count: u32, inputs: *const INPUT, size: i32) -> u32;
+    pub fn GetForegroundWindow() -> isize;
+    pub fn GetWindowThreadProcessId(hwnd: isize, process_id: *mut u32) -> u32;
+    pub fn ShowWindowAsync(hwnd: isize, cmd: i32) -> i32;
+    pub fn SetWindowPos(hwnd: isize, after: isize, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
 }
 
 #[link(name = "dxva2")]
@@ -173,6 +256,9 @@ extern "system" {
 extern "system" {
     pub fn GetSystemPowerStatus(status: *mut SYSTEM_POWER_STATUS) -> i32;
     pub fn MoveFileExW(existing: *const u16, new: *const u16, flags: u32) -> i32;
+    pub fn GetCurrentThreadId() -> u32;
+    pub fn GetCurrentProcessId() -> u32;
+    pub fn GetModuleHandleW(name: *const u16) -> isize;
 }
 
 #[link(name = "advapi32")]
@@ -211,6 +297,12 @@ mod tests {
         assert_eq!(size_of::<DISPLAY_DEVICEW>(), 840);
         assert_eq!(size_of::<MONITORINFOEXW>(), 104);
         assert_eq!(size_of::<SYSTEM_POWER_STATUS>(), 12);
+        #[cfg(target_pointer_width = "64")]
+        {
+            assert_eq!(size_of::<MSG>(), 48);
+            assert_eq!(size_of::<KBDLLHOOKSTRUCT>(), 24);
+            assert_eq!(size_of::<INPUT>(), 40);
+        }
     }
 
     #[test]

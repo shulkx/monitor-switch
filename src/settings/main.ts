@@ -1,4 +1,4 @@
-import { api, esc, onView, type MonitorView, type OptionName, type PortView, type View } from "../shared/api";
+import { api, esc, onHotkeyRecorded, onView, type MonitorView, type OptionName, type PortView, type View } from "../shared/api";
 import { acceleratorFromEvent, prettyAccelerator } from "../shared/hotkey";
 import { icon } from "../shared/icons";
 
@@ -18,14 +18,25 @@ function selectedMonitor(): MonitorView | undefined {
   return view?.monitors.find((m) => m.key === selectedKey) ?? view?.monitors[0];
 }
 
+const REFUSED = "被其他程序占用了，这个快捷键现在不起作用。点右边重新录一个";
+
+/** True when the OS refused to register `accelerator` (another program got it first). */
+function refused(accelerator: string | null): boolean {
+  return accelerator !== null && (view?.failedHotkeys ?? []).includes(accelerator);
+}
+
+/** The error to show for a hotkey: the last attempt's, else whether the saved one is taken. */
+function hotkeyError(errorId: string, accelerator: string | null): string | undefined {
+  if (recording !== null && recording.errorId === errorId) return undefined;
+  return errors.get(errorId) ?? (refused(accelerator) ? REFUSED : undefined);
+}
+
 function hotkeyButton(target: Target, accelerator: string | null, errorId: string): string {
   const isRecording = recording !== null && sameTarget(recording.target, target);
-  const refused = accelerator !== null && (view?.failedHotkeys ?? []).includes(accelerator);
   const text = isRecording ? "按下组合键…" : accelerator ? prettyAccelerator(accelerator) : "录制";
-  const classes = ["hk", accelerator ? "" : "empty", isRecording ? "rec" : "", errors.has(errorId) || refused ? "bad" : ""]
-    .join(" ")
-    .trim();
-  const title = refused ? "已被其他程序占用" : "点一下，然后按下组合键；Backspace 清除，Esc 取消";
+  const bad = !isRecording && hotkeyError(errorId, accelerator) !== undefined;
+  const classes = ["hk", accelerator ? "" : "empty", isRecording ? "rec" : "", bad ? "bad" : ""].join(" ").trim();
+  const title = "点一下，然后按下组合键；Backspace 清除，Esc 取消";
   return `<button class="${classes}" data-hk='${esc(JSON.stringify(target))}' data-err="${errorId}" title="${title}">${esc(text)}</button>`;
 }
 
@@ -35,7 +46,7 @@ function portCard(monitor: MonitorView, port: PortView): string {
   let label = esc(port.portLabel);
   if (port.isLocal) label += monitor.localOverride === null ? " · 本机，自动识别" : " · 本机";
   else if (!port.name) label += " · 还没起名字";
-  const error = errors.get(id);
+  const error = errors.get(id) ?? hotkeyError(id, port.hotkey);
   const placeholder = port.isLocal ? esc(view!.computerName) : "起个名字";
   return `<div class="port${unnamed ? " unnamed" : ""}">
     <span class="glyph">${icon(port.icon)}</span>
@@ -66,7 +77,7 @@ function monitorSection(v: View, monitor: MonitorView): string {
           .join("")}</select>`
       : `<span class="grow">${esc(monitor.label)}</span>`;
   const pair = monitor.togglePair;
-  const toggleError = errors.get("toggle");
+  const toggleError = hotkeyError("toggle", v.toggleHotkey);
   const pairError = errors.get("pair");
   return `
     <div class="row"><label for="monitor">显示器</label>${picker}<span class="note">共 ${v.monitors.length} 台</span></div>
@@ -74,8 +85,13 @@ function monitorSection(v: View, monitor: MonitorView): string {
     ${monitor.ports.map((p) => portCard(monitor, p)).join("")}
     <div class="section-title">来回切换</div>
     <div class="row">
-      <label for="pair-a">在</label><select id="pair-a" class="grow">${portOptions(monitor, pair?.[0] ?? null)}</select>
-      <label for="pair-b">和</label><select id="pair-b" class="grow">${portOptions(monitor, pair?.[1] ?? null)}</select>
+      <select id="pair-a" class="grow" aria-label="第一个接口">${portOptions(monitor, pair?.[0] ?? null)}</select>
+      <span class="swap" aria-hidden="true">⇄</span>
+      <select id="pair-b" class="grow" aria-label="第二个接口">${portOptions(monitor, pair?.[1] ?? null)}</select>
+    </div>
+    <div class="row">
+      <span class="row-label">快捷键</span>
+      <span class="grow hint">按一下，在这两个接口之间来回切</span>
       ${hotkeyButton({ kind: "toggle" }, v.toggleHotkey, "toggle")}
     </div>
     ${toggleError ? `<p class="err" role="alert">${esc(toggleError)}</p>` : ""}
@@ -152,13 +168,7 @@ function bind(): void {
   });
 
   root.querySelectorAll<HTMLButtonElement>("button[data-hk]").forEach((button) =>
-    button.addEventListener("click", () => {
-      // Turn the app's hotkeys off so pressing one records it (and shows the conflict)
-      // instead of switching the monitor.
-      void api.pauseHotkeys();
-      recording = { target: JSON.parse(button.dataset.hk!) as Target, errorId: button.dataset.err! };
-      render();
-    }),
+    button.addEventListener("click", () => beginRecording(JSON.parse(button.dataset.hk!) as Target, button.dataset.err!)),
   );
 
   const pairA = root.querySelector<HTMLSelectElement>("#pair-a");
@@ -188,45 +198,62 @@ function bind(): void {
   );
 }
 
-function stopRecording(): void {
-  recording = null;
-  void api.resumeHotkeys();
+/**
+ * Our own hotkeys go off while recording, so pressing one records it (and shows the conflict)
+ * instead of switching the monitor. On Windows the backend also catches combinations another
+ * program owns, which would otherwise never reach this page, and sends them as "hotkey-recorded".
+ */
+function beginRecording(target: Target, errorId: string): void {
+  recording = { target, errorId };
+  errors.delete(errorId);
+  void api.startHotkeyRecording();
   render();
 }
 
-// Hotkey recording: the next key combination pressed anywhere in the window.
+function stopRecording(): void {
+  recording = null;
+  void api.stopHotkeyRecording();
+  render();
+}
+
+/** Save the recorded combination (null clears it). Taken or clashing ones come back as errors. */
+function finishRecording(accelerator: string | null): void {
+  if (!recording) return;
+  const { target, errorId } = recording;
+  recording = null;
+  void run(errorId, async () => {
+    try {
+      await (target.kind === "toggle"
+        ? api.setToggleHotkey(accelerator)
+        : api.setPortHotkey(target.key, target.value, accelerator));
+    } finally {
+      // A rejected hotkey returns before the backend re-registers anything.
+      await api.stopHotkeyRecording();
+    }
+  });
+}
+
+// Keys that reach the page while recording: Esc, Backspace/Delete, and (outside Windows)
+// the combination itself.
 document.addEventListener(
   "keydown",
   (e) => {
     if (!recording) return;
     e.preventDefault();
     e.stopPropagation();
-    const { target, errorId } = recording;
     if (e.key === "Escape") {
       stopRecording();
-      return;
-    }
-    let accelerator: string | null;
-    if (e.key === "Backspace" || e.key === "Delete") {
-      accelerator = null;
+    } else if (e.key === "Backspace" || e.key === "Delete") {
+      finishRecording(null);
     } else {
-      accelerator = acceleratorFromEvent(e);
-      if (accelerator === null) return; // still holding only modifiers
+      const accelerator = acceleratorFromEvent(e);
+      if (accelerator !== null) finishRecording(accelerator); // null: still holding only modifiers
     }
-    recording = null;
-    void run(errorId, async () => {
-      try {
-        await (target.kind === "toggle"
-          ? api.setToggleHotkey(accelerator)
-          : api.setPortHotkey(target.key, target.value, accelerator));
-      } finally {
-        // A rejected hotkey returns before the backend re-registers anything.
-        await api.resumeHotkeys();
-      }
-    });
   },
   true,
 );
+
+void onHotkeyRecorded((accelerator) => finishRecording(accelerator));
 
 // Leaving the window while recording cancels it, so hotkeys never stay switched off.
 window.addEventListener("blur", () => {

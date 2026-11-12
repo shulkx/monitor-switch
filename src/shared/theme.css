@@ -8,6 +8,8 @@
   --accent: #2563eb;
   --border: rgba(255, 255, 255, 0.08);
   --danger: #f87171;
+  /* Dark built-in controls: scrollbars, drop-down lists. */
+  color-scheme: dark;
   font-family: Inter, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
   font-size: 14px;
   color: var(--text);

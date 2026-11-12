@@ -5,7 +5,7 @@ use std::thread;
 use std::time::Duration;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow};
 
 use crate::view::{MonitorView, PortView};
 
@@ -48,15 +48,36 @@ pub fn show(app: &AppHandle, payload: OsdPayload) {
         }
     }
     let _ = app.emit_to(OSD_LABEL, "osd-show", payload);
-    let _ = win.show();
+    present(&win);
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     let app = app.clone();
     thread::spawn(move || {
         thread::sleep(VISIBLE_FOR);
         if GENERATION.load(Ordering::SeqCst) == generation {
             if let Some(win) = app.get_webview_window(OSD_LABEL) {
-                let _ = win.hide();
+                dismiss(&win);
             }
         }
     });
+}
+
+/// Show the prompt without taking keyboard focus: it appears while the hotkey is still held,
+/// and the program being typed in has to see Ctrl/Alt come back up.
+fn present(win: &WebviewWindow) {
+    #[cfg(windows)]
+    if let Ok(hwnd) = win.hwnd() {
+        crate::platform::show_without_focus(hwnd.0 as isize);
+        return;
+    }
+    let _ = win.show();
+}
+
+/// Hide the prompt. On Windows it was shown behind Tauri's back, so it is hidden the same way.
+pub fn dismiss(win: &WebviewWindow) {
+    #[cfg(windows)]
+    if let Ok(hwnd) = win.hwnd() {
+        crate::platform::hide_window(hwnd.0 as isize);
+        return;
+    }
+    let _ = win.hide();
 }

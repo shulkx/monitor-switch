@@ -51,8 +51,8 @@ export const api = {
   setPortHotkey: (key: string, value: number, accelerator: string | null) =>
     invoke<void>("set_port_hotkey", { key, value, accelerator }),
   setToggleHotkey: (accelerator: string | null) => invoke<void>("set_toggle_hotkey", { accelerator }),
-  pauseHotkeys: () => invoke<void>("pause_hotkeys"),
-  resumeHotkeys: () => invoke<void>("resume_hotkeys"),
+  startHotkeyRecording: () => invoke<void>("start_hotkey_recording"),
+  stopHotkeyRecording: () => invoke<void>("stop_hotkey_recording"),
   setTogglePair: (key: string, pair: [number, number] | null) => invoke<void>("set_toggle_pair", { key, pair }),
   setLocalOverride: (key: string, value: number | null) => invoke<void>("set_local_override", { key, value }),
   setReadCapabilities: (key: string, enabled: boolean) => invoke<void>("set_read_capabilities", { key, enabled }),
@@ -64,6 +64,11 @@ export const api = {
 
 export function onView(callback: (view: View) => void): Promise<UnlistenFn> {
   return listen<View>("view-changed", (e) => callback(e.payload));
+}
+
+/** A combination caught by the system-wide recorder (Windows), e.g. "Ctrl+Alt+M". */
+export function onHotkeyRecorded(callback: (accelerator: string) => void): Promise<UnlistenFn> {
+  return listen<string>("hotkey-recorded", (e) => callback(e.payload));
 }
 
 const ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
