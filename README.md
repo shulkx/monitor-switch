@@ -8,6 +8,7 @@
 
 在托盘里切换显示器输入源，不用再伸手去摸显示器背后的按钮，也不用装厂商几百 MB 的配套软件。
 
+[![最新版本](https://img.shields.io/github/v/release/shulkx/monitor-switch?label=下载&color=2563eb)](https://github.com/shulkx/monitor-switch/releases/latest)
 ![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-2563eb)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![Rust](https://img.shields.io/badge/Rust-backend-B7410E?logo=rust&logoColor=white)
@@ -55,7 +56,7 @@ MonitorSwitch 只做这一件事：通过 **DDC/CI** 直接告诉显示器"换�
 
 ## 安装
 
-1. 下载 [Releases](https://github.com/shulkx/monitor-switch/releases) 里的 `MonitorSwitch_x.y.z_x64-setup.exe`，或者按下面的[开发](#开发)步骤自己构建。
+1. 下载[最新版本](https://github.com/shulkx/monitor-switch/releases/latest)里的 `MonitorSwitch_x.y.z_x64-setup.exe`，或者按下面的[开发](#开发)步骤自己构建。
 2. 在资源管理器里双击安装。安装到当前用户目录，**不需要管理员权限**。
 3. 安装包还没有代码签名，Windows 可能提示"Windows 已保护你的电脑"：点 **更多信息 → 仍要运行**。
 4. 在显示器的菜单里确认 **DDC/CI** 已开启（大多数显示器默认开启）。
