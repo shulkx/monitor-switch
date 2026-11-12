@@ -76,10 +76,12 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
                 position,
+                rect,
                 ..
             } = event
             {
-                flyout::toggle_from_tray(tray.app_handle(), (position.x, position.y));
+                let icon = flyout::icon_rect(flyout::Rect::from_tauri(rect), (position.x, position.y));
+                flyout::toggle_from_tray(tray.app_handle(), icon);
             }
         });
     if let Some(icon) = tray_icon() {

@@ -2,8 +2,9 @@
 mod win;
 #[cfg(windows)]
 pub use win::{
-    hide_window, is_laptop, mask_modifier_release, modifiers_down, replace_file_durably, show_without_focus,
-    small_icon_size, start_recording, stop_recording, WinBackend as NativeBackend,
+    hide_window, is_laptop, mask_modifier_release, modifiers_down, open_url, replace_file_durably,
+    show_without_focus, small_icon_size, start_recording, stop_recording, tray_icon_host,
+    WinBackend as NativeBackend,
 };
 
 #[cfg(not(windows))]
@@ -28,6 +29,13 @@ pub fn modifiers_down() -> bool {
 pub fn small_icon_size() -> u32 {
     32
 }
+
+#[cfg(not(windows))]
+pub fn tray_icon_host(_x: i32, _y: i32) -> Option<[i32; 4]> {
+    None
+}
+#[cfg(not(windows))]
+pub fn open_url(_url: &str) {}
 
 #[cfg(not(windows))]
 pub fn replace_file_durably(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {

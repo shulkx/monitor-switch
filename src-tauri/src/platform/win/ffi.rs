@@ -242,6 +242,18 @@ extern "system" {
     pub fn SetWindowPos(hwnd: isize, after: isize, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
     pub fn GetDpiForSystem() -> u32;
     pub fn GetSystemMetricsForDpi(index: i32, dpi: u32) -> i32;
+    pub fn WindowFromPoint(point: POINT) -> isize;
+    pub fn GetAncestor(hwnd: isize, flags: u32) -> isize;
+    pub fn GetClassNameW(hwnd: isize, name: *mut u16, max: i32) -> i32;
+    pub fn GetWindowRect(hwnd: isize, rect: *mut RECT) -> i32;
+}
+
+pub const GA_ROOT: u32 = 2;
+pub const SW_SHOWNORMAL: i32 = 1;
+
+#[link(name = "shell32")]
+extern "system" {
+    pub fn ShellExecuteW(hwnd: isize, op: *const u16, file: *const u16, params: *const u16, dir: *const u16, show: i32) -> isize;
 }
 
 #[link(name = "dxva2")]
